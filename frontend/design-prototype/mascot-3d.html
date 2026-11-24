@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>小豐 3D</title>
+<!-- 小豐 v3 — real-time 3D model (Three.js). Rendered to transparent PNGs
+     (frontend/assets/mascot_full.png / mascot_head.png) by
+     scripts in the design workflow; open this file directly to preview.
+     Palette: Ink & Wash (#F2FAFA #CBE4F0 #A5D0E9 #81BCDF #5EA2D3 #4185BC #286AA5 #195392). -->
+<style>
+  html, body { margin: 0; height: 100%; background: linear-gradient(160deg, #F2FAFA, #CBE4F0); }
+  canvas { display: block; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const params = new URLSearchParams(location.search);
+const W = +(params.get('w') || 900), H = +(params.get('h') || 1300);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.setClearColor(0x000000, 0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// ── lights: cool key + blue fill + rim, so whites pick up the palette tint
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(3, 7, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.radius = 8;
+Object.assign(key.shadow.camera, { left: -4, right: 4, top: 6, bottom: -1, near: 1, far: 20 });
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xEAF6FF, 0x4185BC, 1.1));
+const rim = new THREE.DirectionalLight(0xA5D0E9, 2.4);
+rim.position.set(-4, 4, -5);
+scene.add(rim);
+
+// ── materials
+const white = new THREE.MeshPhysicalMaterial({ color: 0xEEF6FB, roughness: 0.3, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12 });
+const whiteBlue = new THREE.MeshPhysicalMaterial({ color: 0xDCEDF7, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.15 });
+const blue = new THREE.MeshPhysicalMaterial({ color: 0x4185BC, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.1 });
+const blueLight = new THREE.MeshPhysicalMaterial({ color: 0x81BCDF, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.12 });
+const visor = new THREE.MeshPhysicalMaterial({ color: 0x3C7FBA, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05, sheen: 0.4, sheenColor: new THREE.Color(0xA5D0E9) });
+const glow = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xEAF7FF, emissiveIntensity: 1.6, roughness: 0.4 });
+const glowBlue = new THREE.MeshStandardMaterial({ color: 0xA5D0E9, emissive: 0x81BCDF, emissiveIntensity: 1.2, roughness: 0.4 });
+// panel seams: thin light-blue lines that mark where the legs begin
+const seam = new THREE.MeshPhysicalMaterial({ color: 0x81BCDF, roughness: 0.35, clearcoat: 0.6 });
+const glass = new THREE.MeshPhysicalMaterial({
+  color: 0xE6F4FB, roughness: 0.03, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.02,
+  transparent: true, opacity: 0.2, envMapIntensity: 2.2, depthWrite: false, side: THREE.FrontSide,
+});
+
+const robot = new THREE.Group();
+scene.add(robot);
+function add(geo, mat, x = 0, y = 0, z = 0, opts = {}) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  if (opts.rot) m.rotation.set(...opts.rot);
+  if (opts.scale) m.scale.set(...opts.scale);
+  m.castShadow = opts.shadow !== false;
+  m.receiveShadow = true;
+  (opts.parent || robot).add(m);
+  return m;
+}
+const seg = 64;
+
+const legR = t => 0.33 + 0.12 * Math.pow(1 - Math.min(t / 0.35, 1), 2) - 0.025 * Math.sin(Math.min(t, 0.6) / 0.6 * Math.PI);
+
+// ── legs: one continuous piece from inside the torso down into the boot
+// (no thigh/knee segments). Profile runs bottom→top so normals face out.
+function leg(side) {
+  const g = new THREE.Group();
+  g.position.set(0.34 * side, 0, side < 0 ? 0.1 : -0.04);
+  g.rotation.y = 0.12 * side;
+  g.userData.leg = true;
+  robot.add(g);
+  const pts = [new THREE.Vector2(0.001, 0.14)];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24, y = 0.14 + t * 1.86;                     // 0.14 → 2.0 (top hidden in the torso)
+    pts.push(new THREE.Vector2(legR(t), y));
+  }
+  pts.push(new THREE.Vector2(0.001, 2.0));
+  add(new THREE.LatheGeometry(pts, seg), white, 0, 0, 0, { parent: g, scale: [1, 1, 0.94] });
+  // panel seam where the leg leaves the body (just under the torso's flat bottom)
+  add(new THREE.TorusGeometry(legR((1.12 - 0.14) / 1.86) + 0.012, 0.016, 12, seg), seam, 0, 1.12, 0, { parent: g, rot: [Math.PI / 2, 0, 0], scale: [1, 0.94, 1], shadow: false });
+  // boot: chunky rounded toe + blue sole
+  add(new THREE.SphereGeometry(0.5, seg, seg), white, 0, 0.2, 0.2, { parent: g, scale: [0.95, 0.5, 1.25] });
+  add(new THREE.CylinderGeometry(0.5, 0.48, 0.12, seg), blue, 0, 0.06, 0.2, { parent: g, scale: [0.98, 1, 1.28] });
+}
+leg(-1); leg(1);
+
+// ── torso: barrel lathe, wide chest → narrower waist
+const torsoPts = [];
+const prof = [[0.0, 1.5], [0.46, 1.52], [0.62, 1.6], [0.66, 1.78], [0.63, 1.95], [0.66, 2.2], [0.74, 2.48], [0.75, 2.66], [0.68, 2.86], [0.5, 3.0], [0.28, 3.06], [0.0, 3.07]];
+for (const [r, y] of prof) torsoPts.push(new THREE.Vector2(r, y));
+const torsoCurve = new THREE.SplineCurve(torsoPts);
+// one torso surface split at the belt line, so the hips can be shallower than the chest
+const WAIST = 1.96;
+const torsoAll = torsoCurve.getPoints(60);
+const below = torsoAll.filter(v => v.y <= WAIST), above = torsoAll.filter(v => v.y >= WAIST);
+const waistR = below[below.length - 1].x + (above[0].x - below[below.length - 1].x) * ((WAIST - below[below.length - 1].y) / (above[0].y - below[below.length - 1].y));
+below.push(new THREE.Vector2(waistR, WAIST)); above.unshift(new THREE.Vector2(waistR, WAIST));
+// shallower front-to-back below the belt, so the hips sit flush with the legs (belt hides the step)
+const HIP_Z = 0.62;
+add(new THREE.LatheGeometry(below, seg), white, 0, 0, 0, { scale: [1, 1, HIP_Z] });
+// centre seam on the hip surface, running down into the gap between the legs —
+// together with the ring at the top of each leg, it reads as two legs without clothing
+const hipR = y => { for (let i = 1; i < below.length; i++) if (below[i].y >= y) { const a = below[i - 1], b = below[i]; return a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y); } return below[below.length - 1].x; };
+const onHip = (theta, y, lift = 0.012) => { const r = hipR(y) + lift; return new THREE.Vector3(r * Math.sin(theta), y, r * Math.cos(theta) * HIP_Z); };
+const seamTube = pts => add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, 0.016, 10, false), seam, 0, 0, 0, { shadow: false });
+seamTube([0, 1, 2, 3, 4, 5, 6, 7].map(i => onHip(0, 1.52 + i * 0.06)));
+add(new THREE.LatheGeometry(above, seg), white, 0, 0, 0, { scale: [1, 1, 0.8] });
+// belt + chest plate details
+add(new THREE.TorusGeometry(0.61, 0.07, 16, seg), blueLight, 0, 1.96, 0, { rot: [Math.PI / 2, 0, 0], scale: [1, 0.8, 1] });
+add(new RoundedBoxGeometry(0.56, 0.62, 0.2, 6, 0.1), whiteBlue, 0, 2.46, 0.53, { rot: [-0.12, 0, 0] });
+for (let i = 0; i < 3; i++) add(new THREE.CapsuleGeometry(0.035, 0.24, 8, 24), i === 0 ? glow : glowBlue, 0, 2.62 - i * 0.14, 0.64, { rot: [0, 0, Math.PI / 2] });
+add(new THREE.CapsuleGeometry(0.03, 0.12, 8, 24), blue, 0, 2.17, 0.55, { rot: [-0.2, 0, 0] });
+// collar
+add(new THREE.TorusGeometry(0.3, 0.09, 16, seg), blue, 0, 3.07, 0, { rot: [Math.PI / 2, 0, 0] });
+add(new THREE.CylinderGeometry(0.26, 0.3, 0.22, seg), blueLight, 0, 3.15, 0);
+
+// ── arms: one continuous piece from the shoulder to the wrist (no elbow segments)
+function arm(side) {
+  const sh = new THREE.Group();
+  sh.position.set(0.86 * side, 2.74, 0);
+  sh.rotation.z = 0.2 * side;          // arms hang a little away from the body
+  sh.rotation.x = side < 0 ? -0.12 : 0.1;
+  robot.add(sh);
+  add(new THREE.SphereGeometry(0.33, seg, seg), white, 0, 0, 0, { parent: sh });                 // rounded shoulder
+  const pts = [new THREE.Vector2(0.001, -1.28)];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24, y = -1.28 + t * 1.28;                    // wrist → shoulder
+    const r = 0.17 + 0.05 * Math.sin(t * Math.PI) * 0.6 + 0.07 * Math.pow(t, 3) + 0.03 * Math.pow(1 - t, 2);
+    pts.push(new THREE.Vector2(r, y));
+  }
+  pts.push(new THREE.Vector2(0.001, 0.02));
+  add(new THREE.LatheGeometry(pts, seg), white, 0.02 * side, 0, 0.01, { parent: sh });
+  // mitten hand + thumb + curled fingers
+  const hand = new THREE.Group();
+  hand.position.set(0.03 * side, -1.3, 0.03);
+  sh.add(hand);
+  add(new THREE.SphereGeometry(0.23, seg, seg), whiteBlue, 0, 0.02, 0, { parent: hand, scale: [0.9, 1.05, 0.95] });
+  for (let f = 0; f < 3; f++) add(new THREE.CapsuleGeometry(0.06, 0.12, 8, 24), whiteBlue, (-0.08 + f * 0.08) * side * 0.6, -0.22, 0.06 - f * 0.05, { parent: hand, rot: [0.5, 0, 0] });
+  add(new THREE.CapsuleGeometry(0.06, 0.1, 8, 24), whiteBlue, -0.17 * side, -0.05, 0.1, { parent: hand, rot: [0, 0, 0.7 * side] });
+}
+arm(-1); arm(1);
+
+// ── head
+const head = new THREE.Group();
+head.position.set(0, 4.08, 0.02); head.scale.setScalar(1.06);
+head.rotation.set(0.04, 0, 0);
+robot.add(head);
+// inner skull (seen through the glass)
+add(new THREE.SphereGeometry(0.8, seg, seg), whiteBlue, 0, -0.04, 0, { parent: head, scale: [1, 0.96, 0.94] });
+// face visor: front cap of a sphere, upper 2/3
+// rounded screen: a flattened ellipsoid pushed forward, so its edge reads as a soft pill shape
+add(new THREE.SphereGeometry(0.8, seg, seg), visor, 0, 0.12, 0.3, { parent: head, scale: [0.98, 0.66, 0.62] });
+// happy ^^ eyes: torus arcs sitting on the visor
+for (const s of [-1, 1]) add(new THREE.TorusGeometry(0.15, 0.05, 16, 48, Math.PI), glow, 0.26 * s, 0.1, 0.86, { parent: head, rot: [-0.1, 0.32 * s, 0], shadow: false });
+// sound-wave mouth on the lower skull
+[0.06, 0.12, 0.2, 0.12, 0.06].forEach((h, i) => add(new THREE.CapsuleGeometry(0.028, h, 8, 16), i === 2 ? glow : glowBlue, (i - 2) * 0.09, -0.5, 0.66 - Math.abs(i - 2) * 0.012, { parent: head, rot: [-0.25, 0, 0], shadow: false }));
+// glass dome
+const dome = add(new THREE.SphereGeometry(1.0, 96, 96), glass, 0, 0, 0, { parent: head, shadow: false });
+dome.renderOrder = 2;
+// headphones: band over the dome + ear cups
+add(new THREE.TorusGeometry(1.07, 0.085, 24, 96, Math.PI), blue, 0, 0.0, -0.05, { parent: head, rot: [0, 0, 0] });
+add(new THREE.TorusGeometry(1.07, 0.03, 12, 96, Math.PI), blueLight, 0, 0.0, 0.04, { parent: head });
+for (const s of [-1, 1]) {
+  const cup = new THREE.Group();
+  cup.position.set(1.02 * s, -0.02, -0.02);
+  cup.rotation.z = Math.PI / 2;
+  head.add(cup);
+  add(new THREE.CylinderGeometry(0.36, 0.38, 0.26, seg), white, 0, 0.0, 0, { parent: cup });
+  add(new THREE.CylinderGeometry(0.3, 0.34, 0.08, seg), blue, 0, -0.16 * s, 0, { parent: cup });
+  add(new THREE.SphereGeometry(0.22, seg, seg), blueLight, 0, -0.18 * s, 0, { parent: cup, scale: [1, 0.35, 1] });
+  add(new THREE.TorusGeometry(0.36, 0.07, 16, seg), whiteBlue, 0, 0.12 * s, 0, { parent: cup, rot: [Math.PI / 2, 0, 0] });
+}
+
+// Chibi proportions: everything above the legs sits lower, so the visible
+// leg is short and stubby (leg tops stay hidden inside the torso).
+for (const child of robot.children) if (!child.userData.leg) child.position.y -= 0.32;
+
+// ── soft contact shadow
+const sh = document.createElement('canvas'); sh.width = sh.height = 256;
+const c = sh.getContext('2d'); const gr = c.createRadialGradient(128, 128, 0, 128, 128, 128);
+gr.addColorStop(0, 'rgba(25,83,146,0.35)'); gr.addColorStop(1, 'rgba(25,83,146,0)');
+c.fillStyle = gr; c.fillRect(0, 0, 256, 256);
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sh), transparent: true, depthWrite: false }));
+shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.005;
+scene.add(shadow);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.08, color: 0x195392 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
+ground.visible = false;  // the soft contact shadow alone reads cleaner
+scene.add(ground);
+
+robot.rotation.y = -0.32;   // slight three-quarter turn, like the reference
+
+// ── cameras
+const camFull = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
+camFull.position.set(0.4, 2.85, 15.6);
+camFull.lookAt(0, 2.42, 0);
+const camHead = new THREE.PerspectiveCamera(24, 1, 0.1, 100);
+camHead.position.set(0.2, 4.03, 7.6);
+camHead.lookAt(0, 3.84, 0);
+
+const mode = params.get('mode') || 'full';
+if (mode === 'head') {
+  renderer.setSize(H, H);
+  shadow.visible = ground.visible = false;
+  for (const child of robot.children) child.visible = child === head;   // avatar: head only
+  renderer.render(scene, camHead);
+} else {
+  renderer.render(scene, camFull);
+}
+window.__png = renderer.domElement.toDataURL('image/png');
+window.__done = true;
+</script>
+</body>
+</html>

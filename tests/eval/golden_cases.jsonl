@@ -1,0 +1,33 @@
+{"id": "zh_faq_001", "category": "faq", "language": "zh", "query": "信用卡年費要怎麼收費？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["credit_card_fees"]}
+{"id": "zh_faq_002", "category": "faq", "language": "zh", "query": "跨行 ATM 提款手續費是多少？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["atm_services"]}
+{"id": "zh_faq_003", "category": "faq", "language": "zh", "query": "定期存款的利率大概是多少？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["account_services"]}
+{"id": "zh_faq_004", "category": "faq", "language": "zh", "query": "網路銀行密碼忘記了要怎麼辦？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["digital_banking"]}
+{"id": "zh_faq_005", "category": "faq", "language": "zh", "query": "信用卡在餐廳消費有什麼回饋？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["credit_card_benefits"]}
+{"id": "zh_faq_006", "category": "faq", "language": "zh", "query": "換外幣現鈔的手續費怎麼算？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["foreign_currency_exchange"]}
+{"id": "zh_faq_007", "category": "faq", "language": "zh", "query": "轉帳到別家銀行的手續費是多少？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["transfer_rules"]}
+{"id": "zh_faq_008", "category": "faq", "language": "zh", "query": "房屋貸款的利率大概多少？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["loan_overview"]}
+{"id": "en_faq_009", "category": "faq", "language": "en", "query": "What are your branch business hours?", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["general_services"]}
+{"id": "en_faq_010", "category": "faq", "language": "en", "query": "What is the daily ATM withdrawal limit?", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["atm_services"]}
+{"id": "zh_acct_001", "category": "account", "language": "zh", "query": "我的信用卡帳單多少", "expected_intent": "account", "should_handoff": false, "requires_login": true, "user_id": null}
+{"id": "zh_acct_002", "category": "account", "language": "zh", "query": "我的活期存款餘額多少", "expected_intent": "account", "should_handoff": false, "requires_login": false, "user_id": "user_001"}
+{"id": "zh_acct_003", "category": "account", "language": "zh", "query": "這個月信用卡帳單要繳多少", "expected_intent": "account", "should_handoff": false, "requires_login": false, "user_id": "user_002"}
+{"id": "en_acct_004", "category": "account", "language": "en", "query": "What are my recent transactions?", "expected_intent": "account", "should_handoff": false, "requires_login": false, "user_id": "user_003"}
+{"id": "zh_acct_005", "category": "account", "language": "zh", "query": "我這個月信用卡帳單多少，還有最近的消費記錄", "expected_intent": "account", "should_handoff": false, "requires_login": false, "user_id": "user_001"}
+{"id": "zh_cardloss_001", "category": "card_loss", "language": "zh", "query": "我的卡不見了", "expected_intent": "card_loss", "should_handoff": false, "requires_login": true, "user_id": null}
+{"id": "zh_cardloss_002", "category": "card_loss", "language": "zh", "query": "信用卡不見了，幫我掛失", "expected_intent": "card_loss", "should_handoff": false, "requires_login": false, "user_id": "user_002", "expected_workflow_step": 1}
+{"id": "en_cardloss_003", "category": "card_loss", "language": "en", "query": "I lost my credit card", "expected_intent": "card_loss", "should_handoff": false, "requires_login": false, "user_id": "user_003", "expected_workflow_step": 1}
+{"id": "zh_handoff_001", "category": "handoff", "language": "zh", "query": "我要投訴", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "explicit_request"}
+{"id": "zh_handoff_002", "category": "handoff", "language": "zh", "query": "我的信用卡有一筆我沒刷過的交易，好像被盜刷了", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "fraud_or_security"}
+{"id": "zh_handoff_003", "category": "handoff", "language": "zh", "query": "我申請的退款已經兩週還沒收到", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "dispute_or_refund"}
+{"id": "zh_handoff_004", "category": "handoff", "language": "zh", "query": "可以幫我減免這期信用卡年費嗎?", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "approval_required"}
+{"id": "zh_handoff_005", "category": "handoff", "language": "zh", "query": "我要修改帳戶預留的手機號碼", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "sensitive_data_change"}
+{"id": "en_handoff_006", "category": "handoff", "language": "en", "query": "I've been waiting an hour, fix this right now!!", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "emotional_distress"}
+{"id": "zh_handoff_007", "category": "handoff", "language": "zh", "query": "我要同時處理我先生帳戶的問題跟我自己的信用卡爭議", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "cross_account_complexity"}
+{"id": "zh_handoff_008", "category": "handoff", "language": "zh", "query": "你搞錯了，這不是我要的答案", "expected_intent": "faq", "should_handoff": false, "expected_handoff_category": null}
+{"id": "zh_multi_001", "category": "multi_turn", "language": "zh", "turns": ["信用卡有哪些回饋?", "那年費呢?"], "user_id": null, "expected_intent": "faq", "expected_sources": ["credit_card_fees"]}
+{"id": "zh_multi_002", "category": "multi_turn", "language": "zh", "turns": ["我要換外幣，手續費怎麼算?", "那匯率是用哪一種?"], "user_id": null, "expected_intent": "faq", "expected_sources": ["foreign_currency_exchange"]}
+{"id": "en_multi_003", "category": "multi_turn", "language": "en", "turns": ["What is the daily ATM withdrawal limit?", "And the per-transaction limit?"], "user_id": null, "expected_intent": "faq", "expected_sources": ["atm_services"]}
+{"id": "zh_multi_004", "category": "multi_turn", "language": "zh", "turns": ["我這個月信用卡帳單多少?", "那上個月的呢?"], "user_id": "user_001", "expected_intent": "account", "expected_sources": null}
+{"id": "zh_faq_011", "category": "faq", "language": "zh", "query": "我已取消了海外網站購物的訂單並退貨成功，為什麼收到帳單後，退款的台幣金額比原本扣款的金額還要少？而且當初被收的 1.5% 國外交易手續費沒有退還？", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["credit_card_fees"]}
+{"id": "en_faq_012", "category": "faq", "language": "en", "query": "I returned something I bought from an overseas website. Why is the NTD refund on my statement lower than what I was charged, and why wasn't the 1.5% foreign transaction fee refunded?", "expected_intent": "faq", "should_handoff": false, "expected_sources": ["credit_card_fees"]}
+{"id": "zh_handoff_009", "category": "handoff", "language": "zh", "query": "海外網站的退款商家說早就退了，已經過了一個多月我的帳單上還是沒看到，請幫我查", "expected_intent": "handoff", "should_handoff": true, "expected_handoff_category": "dispute_or_refund"}

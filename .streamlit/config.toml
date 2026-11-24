@@ -1,0 +1,10 @@
+# Streamlit reads this from the directory `streamlit run` is launched in
+# (the repo root, per README). Matches the Ink & Wash palette in
+# frontend/theme.py — primaryColor drives focus rings, toggles, radios
+# and other built-in accents that CSS can't reach cleanly.
+[theme]
+base = "light"
+primaryColor = "#286AA5"
+textColor = "#0F2C4A"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2FAFA"

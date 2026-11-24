@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XX Bank AI 客服助理 - 配色原型</title>
+    <style>
+        /* ═══ CSS Variables (色卡) ═══ */
+        :root {
+            --bg-light: #F0F3FA;
+            --bg-secondary: #D7E0E9;
+            --accent-light: #9ABFCF;
+            --primary: #386382;
+            --primary-dark: #3D4A61;
+            --text-dark: #1A1F2E;
+            --text-light: #6B7280;
+            --success: #10B981;
+            --warning: #F59E0B;
+        }
+
+        /* ═══ Reset & Base ═══ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'PingFang TC', 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ═══ Layout ═══ */
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        /* 左側 Sidebar */
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* 右側主聊天區 */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        /* ═══ Sidebar Elements ═══ */
+        .sidebar-header {
+            text-align: center;
+            border-bottom: 2px solid var(--bg-light);
+            padding-bottom: 1rem;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .sidebar-header .subtitle {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        /* 波浪裝飾 */
+        .wave-decoration {
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 50% 50% 0 0;
+            margin-top: 0.5rem;
+        }
+
+        /* Login Card */
+        .login-card {
+            background: var(--bg-light);
+            border: 1px solid var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1rem;
+            gap: 0.75rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .login-card h3 {
+            font-size: 0.9rem;
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .login-card input {
+            padding: 0.625rem;
+            border: 1px solid var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            background: white;
+        }
+
+        .login-card input:focus {
+            outline: none;
+            border-color: var(--accent-light);
+            box-shadow: 0 0 0 3px rgba(154, 191, 207, 0.1);
+        }
+
+        .btn-login {
+            padding: 0.625rem 1rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(56, 99, 130, 0.3);
+        }
+
+        /* Authenticated State */
+        .auth-state {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .auth-state .user-name {
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0.5rem 0;
+        }
+
+        .auth-state .user-id {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .btn-logout {
+            margin-top: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            color: var(--primary);
+            border: 1px solid var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: var(--bg-light);
+            border-color: var(--primary);
+        }
+
+        /* Session Info */
+        .session-info {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            line-height: 1.8;
+            padding: 0.75rem;
+            background: var(--bg-light);
+            border-radius: 8px;
+        }
+
+        .session-info strong {
+            color: var(--text-dark);
+        }
+
+        /* FAQ Quick Buttons */
+        .faq-section {
+            border-top: 1px solid var(--bg-secondary);
+            padding-top: 1rem;
+        }
+
+        .faq-section p {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .faq-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .btn-faq {
+            padding: 0.625rem;
+            background: white;
+            color: var(--text-dark);
+            border: 1px solid var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1.4;
+        }
+
+        .btn-faq:hover {
+            background: var(--bg-light);
+            border-color: var(--accent-light);
+            color: var(--primary);
+        }
+
+        /* Clear Button */
+        .btn-clear {
+            margin-top: auto;
+            padding: 0.625rem 1rem;
+            background: white;
+            color: var(--text-dark);
+            border: 1px solid var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-clear:hover {
+            background: var(--bg-light);
+            border-color: #E5E7EB;
+        }
+
+        /* ═══ Main Chat Area ═══ */
+        .chat-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .disclaimer {
+            background: var(--bg-light);
+            border-left: 4px solid var(--accent-light);
+            padding: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-dark);
+            line-height: 1.5;
+        }
+
+        /* Messages Area */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* 訊息氣泡 */
+        .message-group {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-group.user {
+            flex-direction: row-reverse;
+            justify-content: flex-start;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .avatar.user {
+            background: var(--accent-light);
+        }
+
+        .avatar.assistant {
+            background: var(--primary);
+        }
+
+        .avatar.agent {
+            background: var(--warning);
+        }
+
+        .message-bubble {
+            padding: 0.875rem 1rem;
+            border-radius: 12px;
+            max-width: 60%;
+            word-wrap: break-word;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .message-bubble.user {
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+            text-align: left;
+        }
+
+        .message-bubble.assistant {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--bg-secondary);
+        }
+
+        .message-bubble.agent {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--text-dark);
+            border: 1px solid var(--warning);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-top: 0.25rem;
+        }
+
+        /* Banner */
+        .banner {
+            margin: 0.5rem 0;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            border-left: 4px solid;
+        }
+
+        .banner.handoff {
+            background: rgba(245, 158, 11, 0.1);
+            border-left-color: var(--warning);
+            color: var(--text-dark);
+        }
+
+        /* 輸入區 */
+        .input-area {
+            border-top: 1px solid var(--bg-secondary);
+            padding: 1rem;
+            background: white;
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--bg-secondary);
+            border-radius: 24px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            background: var(--bg-light);
+        }
+
+        .input-area input:focus {
+            outline: none;
+            border-color: var(--accent-light);
+            box-shadow: 0 0 0 3px rgba(154, 191, 207, 0.1);
+        }
+
+        .btn-send {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            flex-shrink: 0;
+        }
+
+        .btn-send:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(56, 99, 130, 0.3);
+        }
+
+        /* ═══ Rating Section ═══ */
+        .rating-section {
+            padding: 1.5rem;
+            background: rgba(154, 191, 207, 0.05);
+            border: 1px solid var(--bg-secondary);
+            border-radius: 12px;
+            text-align: center;
+            margin: 1rem;
+        }
+
+        .rating-section h3 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .rating-section p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        .rating-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .btn-rating {
+            width: 50px;
+            height: 50px;
+            border: none;
+            background: white;
+            border: 1px solid var(--bg-secondary);
+            border-radius: 50%;
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-rating:hover {
+            border-color: var(--accent-light);
+            transform: scale(1.1);
+        }
+
+        .btn-rating.selected {
+            background: var(--accent-light);
+            border-color: var(--primary);
+        }
+
+        .rating-labels {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        .rating-labels span {
+            width: 50px;
+            text-align: center;
+        }
+
+        .btn-submit-rating {
+            padding: 0.625rem 1.5rem;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-submit-rating:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* ═══ Scrollbar ═══ */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-light);
+        }
+
+        /* ═══ 深色/淺色模式支援 ═══ */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-light: #1F2937;
+                --bg-secondary: #374151;
+                --text-dark: #F3F4F6;
+                --text-light: #D1D5DB;
+            }
+
+            body {
+                background-color: #111827;
+            }
+
+            .sidebar, .main-chat {
+                background: #1F2937;
+                color: var(--text-dark);
+            }
+
+            .login-card {
+                background: #111827;
+            }
+
+            .login-card input {
+                background: #374151;
+                color: var(--text-dark);
+            }
+
+            .btn-faq {
+                background: #111827;
+                color: var(--text-dark);
+            }
+
+            .message-bubble.assistant {
+                background: #374151;
+            }
+
+            .input-area input {
+                background: #374151;
+                color: var(--text-dark);
+            }
+
+            .rating-section {
+                background: rgba(56, 99, 130, 0.1);
+            }
+
+            .btn-rating {
+                background: #374151;
+                color: var(--text-dark);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左側 Sidebar -->
+        <div class="sidebar">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <h2>🏦 XX Bank</h2>
+                <p class="subtitle">AI 客服助理</p>
+                <div class="wave-decoration"></div>
+            </div>
+
+            <!-- Login State (顯示 demo 登入狀態) -->
+            <div class="auth-state">
+                ✅ 已登入
+                <div class="user-name">陳小明</div>
+                <div class="user-id">ID: demo_user1</div>
+                <button class="btn-logout">登出</button>
+            </div>
+
+            <!-- Session Info -->
+            <div class="session-info">
+                <div><strong>語言</strong>: 🇹🇼 繁體中文</div>
+                <div><strong>對話輪數</strong>: 3 / 10</div>
+                <div><strong>Session</strong>: abc12345...</div>
+            </div>
+
+            <!-- FAQ Quick Access -->
+            <div class="faq-section">
+                <p>💡 可以問：</p>
+                <div class="faq-buttons">
+                    <button class="btn-faq">我本月帳單多少？</button>
+                    <button class="btn-faq">我的帳戶餘額是多少？</button>
+                    <button class="btn-faq">幫我看最近的消費明細</button>
+                    <button class="btn-faq">我要掛失信用卡</button>
+                </div>
+            </div>
+
+            <!-- Clear Button -->
+            <button class="btn-clear">🗑️ 清除對話</button>
+        </div>
+
+        <!-- 右側主聊天區 -->
+        <div class="main-chat">
+            <!-- Header -->
+            <div class="chat-header">
+                <h1>🏦 XX Bank AI 客服助理</h1>
+            </div>
+
+            <!-- Disclaimer -->
+            <div class="disclaimer">
+                本助理提供之資訊僅供參考，不構成財務建議。實際利率、費用以官網公告為準。
+            </div>
+
+            <!-- Messages -->
+            <div class="messages-container">
+                <!-- Welcome Message -->
+                <div class="message-group">
+                    <div class="avatar assistant">🤖</div>
+                    <div>
+                        <div class="message-bubble assistant">
+                            您好！我是 XX 銀行 AI 客服助理，可以協助您查詢信用卡費用、帳戶服務、轉帳規則等資訊。
+                            <br><br>
+                            登入後還可以查詢您的個人帳單和消費明細喔！
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Message -->
+                <div class="message-group user">
+                    <div class="avatar user">我</div>
+                    <div>
+                        <div class="message-bubble user">
+                            我要查詢我的帳單
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Response -->
+                <div class="message-group">
+                    <div class="avatar assistant">🤖</div>
+                    <div>
+                        <div class="message-bubble assistant">
+                            您好陳小明，您 2024 年 8 月份的帳單為 <strong>新台幣 15,850 元</strong>，將於月底前寄出紙本帳單或您可登入網銀查詢詳細明細。
+                            <br><br>
+                            有其他問題嗎？
+                        </div>
+                        <div class="message-meta">📚 參考來源：帳戶系統</div>
+                    </div>
+                </div>
+
+                <!-- Handoff Banner -->
+                <div class="banner handoff">
+                    🤝 已轉接真人客服 — 本次對話將由專員接手
+                </div>
+
+                <!-- Agent Message -->
+                <div class="message-group">
+                    <div class="avatar agent">🧑‍💼</div>
+                    <div>
+                        <div class="message-bubble agent">
+                            <strong>客服專員 - 王先生</strong>
+                            <br><br>
+                            您好！我是您今天的服務專員，看到您想查詢帳單。除了帳單金額外，還有其他需要協助的嗎？比如帳戶利率、手續費調整等等。
+                        </div>
+                        <div class="message-meta">🕐 14:35</div>
+                    </div>
+                </div>
+
+                <!-- User Reply to Agent -->
+                <div class="message-group user">
+                    <div class="avatar user">我</div>
+                    <div>
+                        <div class="message-bubble user">
+                            謝謝！我想問一下這筆消費 (8/15 金額 3,500) 是哪一筆。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <input type="text" placeholder="輸入訊息給客服人員..." />
+                <button class="btn-send">📤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal (靜態展示用，實際應該是 modal 或切換頁面) -->
+    <!--
+    <div class="rating-section">
+        <h3>請為這次的服務評分</h3>
+        <p>您的滿意度是我們改善的依據 🙌</p>
+
+        <div class="rating-buttons">
+            <button class="btn-rating">😢</button>
+            <button class="btn-rating">😕</button>
+            <button class="btn-rating">😐</button>
+            <button class="btn-rating">🙂</button>
+            <button class="btn-rating selected">😄</button>
+        </div>
+
+        <div class="rating-labels">
+            <span>很不滿意</span>
+            <span>不太滿意</span>
+            <span>普通</span>
+            <span>滿意</span>
+            <span>很滿意</span>
+        </div>
+
+        <button class="btn-submit-rating">送出評分</button>
+    </div>
+    -->
+</body>
+</html>

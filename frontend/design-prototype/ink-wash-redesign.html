@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ink &amp; Wash 改版設計稿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* Ink & Wash palette — the 8 swatches from the reference card, plus two
+   derived text tones (deeper than Carbon Ink) so body copy stays ≥ 4.5:1. */
+:root {
+  --rice: #F2FAFA;  --dilute: #CBE4F0; --first: #A5D0E9; --half: #81BCDF;
+  --full: #5EA2D3;  --dark: #4185BC;   --conc: #286AA5;  --carbon: #195392;
+  --ink: #0F2C4A;   --muted: #4F6B85;  --line: #DCEAF2;  --white: #FFFFFF;
+  --rail: #0F2C4A;
+  --shadow: 0 1px 2px rgba(15,44,74,.05), 0 14px 36px rgba(40,106,165,.12);
+  --font: 'Plus Jakarta Sans', 'Noto Sans TC', 'PingFang TC', sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font); color: var(--ink); background: #E9F2F7; }
+.doc { max-width: 1360px; margin: 0 auto; padding: 40px 24px 80px; }
+.doc > header h1 { font-size: 30px; font-weight: 800; margin: 0 0 6px; color: var(--carbon); }
+.doc > header p { margin: 0; color: var(--muted); }
+section.block { margin-top: 56px; }
+.block-title { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.block-title .num { font-weight: 800; color: var(--full); font-size: 14px; letter-spacing: .08em; }
+.block-title h2 { margin: 0; font-size: 22px; font-weight: 800; }
+.note { color: var(--muted); font-size: 14px; line-height: 1.7; max-width: 860px; margin: 0 0 16px; }
+
+/* palette strip */
+.palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; margin-top: 20px; }
+.sw { border-radius: 14px; padding: 12px; min-height: 92px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 12px; font-weight: 700; box-shadow: var(--shadow); }
+.sw small { display: block; font-weight: 500; opacity: .85; margin-top: 2px; }
+
+/* mascot sheet */
+.sheet { background: linear-gradient(160deg, var(--rice), var(--dilute)); border-radius: 28px; padding: 32px; display: flex; align-items: flex-end; gap: 56px; box-shadow: var(--shadow); }
+.sheet .avatars { display: flex; gap: 20px; align-items: center; }
+.sheet .avatars img { border-radius: 50%; box-shadow: 0 4px 12px rgba(40,106,165,.18); }
+.sheet .cap { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+/* screen frame (desktop browser) */
+.frame { border-radius: 22px; overflow: hidden; box-shadow: 0 30px 60px rgba(15,44,74,.18); background: var(--white); border: 1px solid var(--line); }
+.chrome { height: 34px; background: #F4F8FB; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 7px; padding: 0 14px; }
+.chrome i { width: 11px; height: 11px; border-radius: 50%; background: #D5E1EA; display: block; }
+.chrome span { margin-left: 14px; font-size: 12px; color: var(--muted); background: var(--white); border-radius: 8px; padding: 3px 12px; border: 1px solid var(--line); }
+.screen { display: grid; grid-template-columns: 256px 1fr; }
+
+/* customer sidebar (light) */
+.side-light { background: var(--white); border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 14px; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-size: 14px; color: var(--muted); text-decoration: none; font-weight: 500; }
+.nav a.on { background: var(--dilute); color: var(--carbon); font-weight: 700; }
+.rail-card { background: var(--rice); border: 1px solid var(--line); border-radius: 16px; padding: 14px; font-size: 13px; }
+.rail-card h4 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--carbon); }
+.field { height: 36px; border-radius: 10px; background: var(--white); border: 1px solid var(--line); margin: 4px 0 10px; }
+.lbl { font-size: 12px; color: var(--muted); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 999px; font-weight: 700; font-size: 14px; border: 1px solid var(--line); background: var(--white); color: var(--ink); }
+.btn.primary { background: var(--conc); color: var(--white); border: none; }
+.btn.dark { background: var(--carbon); color: var(--white); border: none; }
+.btn.block { width: 100%; }
+
+/* chat home — the right-hand reference screen */
+.chat-main { position: relative; min-height: 820px; background: linear-gradient(180deg, var(--white) 0%, var(--rice) 38%, var(--dilute) 78%, var(--first) 100%); display: flex; flex-direction: column; align-items: center; padding: 22px 32px 28px; }
+.topbar { width: 100%; max-width: 760px; display: flex; justify-content: center; font-weight: 700; font-size: 15px; color: var(--ink); }
+.hero-bot { height: 300px; margin-top: 8px; filter: drop-shadow(0 18px 24px rgba(40,106,165,.22)); }
+.badge { display: inline-block; background: var(--conc); color: var(--white); font-size: 13px; font-weight: 700; padding: 7px 18px; border-radius: 999px; margin-top: 12px; }
+.greet { font-size: 34px; line-height: 1.25; font-weight: 800; text-align: center; margin: 14px 0 6px; color: var(--ink); }
+.greet-sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; text-align: center; }
+.pills { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.pill { background: rgba(255,255,255,.75); border: 1px solid var(--white); backdrop-filter: blur(6px); padding: 10px 22px; border-radius: 999px; font-size: 14px; color: var(--ink); box-shadow: 0 4px 14px rgba(40,106,165,.10); }
+.composer { margin-top: auto; width: 100%; max-width: 720px; display: flex; align-items: center; gap: 10px; background: var(--white); border-radius: 999px; padding: 8px 8px 8px 20px; box-shadow: 0 10px 30px rgba(40,106,165,.18); }
+.composer span { flex: 1; color: #7C93A8; font-size: 15px; }
+.send { width: 44px; height: 44px; border-radius: 50%; background: var(--conc); display: grid; place-items: center; }
+.fine { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; }
+
+/* chat — in conversation */
+.convo { background: linear-gradient(180deg, var(--white), var(--rice)); padding: 26px 40px; display: flex; flex-direction: column; gap: 16px; }
+.msg { display: flex; gap: 10px; align-items: flex-start; max-width: 760px; width: 100%; margin: 0 auto; }
+.msg.ai { flex-direction: row-reverse; }
+.msg img { width: 38px; height: 38px; border-radius: 50%; }
+.uav { width: 38px; height: 38px; border-radius: 50%; background: var(--first); display: grid; place-items: center; font-size: 18px; flex: none; }
+.bubble { padding: 12px 16px; border-radius: 18px; font-size: 14.5px; line-height: 1.65; max-width: 78%; }
+.msg.user .bubble { background: var(--conc); color: var(--white); border-top-left-radius: 6px; }
+.msg.ai .bubble { background: var(--white); border: 1px solid var(--line); border-top-right-radius: 6px; box-shadow: var(--shadow); }
+.src { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; max-width: 760px; width: 100%; margin: 0 auto; }
+.chip { background: var(--white); border: 1px solid var(--first); color: var(--carbon); font-size: 13px; padding: 7px 14px; border-radius: 999px; font-weight: 600; }
+
+/* staff shell — dark rail, like the dashboard reference */
+.staff { display: grid; grid-template-columns: 220px 1fr; background: linear-gradient(135deg, #E3F0F7, #F2FAFA 45%, #DDEDF6); }
+.side-dark { background: var(--rail); color: #C9DCEB; padding: 22px 14px; display: flex; flex-direction: column; gap: 6px; border-radius: 0 22px 22px 0; margin: 14px 0; }
+.side-dark .brand { display: flex; align-items: center; gap: 10px; color: var(--white); font-weight: 800; font-size: 15px; padding: 4px 8px 18px; }
+.side-dark .brand b { width: 34px; height: 34px; border-radius: 10px; background: var(--full); display: grid; place-items: center; font-size: 17px; }
+.side-dark a { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; color: #B9CFE1; text-decoration: none; font-size: 14px; font-weight: 600; }
+.side-dark a.on { background: rgba(94,162,211,.22); color: var(--white); box-shadow: inset 3px 0 0 var(--full); }
+.side-dark hr { border: 0; border-top: 1px solid rgba(255,255,255,.1); margin: 10px 4px; }
+.panel { margin: 18px 22px 22px 18px; background: rgba(255,255,255,.92); border-radius: 28px; box-shadow: var(--shadow); padding: 26px 28px 28px; }
+.ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.ph h3 { font-size: 28px; font-weight: 800; margin: 0; }
+.ph .meta { font-size: 13px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: 1.65fr 1fr; gap: 18px; }
+.card { background: var(--white); border: 1px solid var(--line); border-radius: 22px; padding: 18px 20px; }
+.card h5 { margin: 0 0 12px; font-size: 16px; font-weight: 800; }
+
+/* dashboard hero */
+.dhero { position: relative; border-radius: 24px; background: linear-gradient(135deg, var(--dilute) 0%, var(--rice) 55%, #E7F2F9 100%); padding: 34px 32px 0; min-height: 360px; overflow: visible; grid-row: span 2; display: flex; flex-direction: column; }
+.dhero::before { content: ""; position: absolute; right: 60px; top: 40px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(129,188,223,.55), rgba(129,188,223,0) 70%); }
+.dhero h4 { position: relative; font-size: 40px; line-height: 1.12; font-weight: 800; margin: 0 0 18px; max-width: 360px; }
+.dhero .bot { position: absolute; right: 36px; top: -54px; height: 330px; filter: drop-shadow(0 20px 26px rgba(25,83,146,.25)); }
+.dot { position: absolute; border-radius: 50%; background: var(--white); }
+.kpis { position: relative; margin-top: auto; margin-bottom: 14px; margin-left: -18px; margin-right: -18px; background: rgba(255,255,255,.82); backdrop-filter: blur(10px); border: 1px solid var(--white); border-radius: 20px; padding: 18px 26px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.kpi .k { font-size: 14px; color: var(--muted); font-weight: 600; }
+.kpi .v { font-size: 46px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.kpi .s { font-size: 12px; color: var(--muted); }
+.bars { display: flex; align-items: flex-end; gap: 12px; height: 150px; padding: 0 4px; }
+.bars div { flex: 1; white-space: nowrap; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 11px; color: var(--muted); gap: 6px; }
+.bars span { width: 100%; border-radius: 10px; display: block; }
+.bars b { font-size: 12px; color: var(--ink); }
+.donut-row { display: flex; align-items: center; gap: 20px; }
+.donut { width: 110px; height: 110px; border-radius: 50%; background: conic-gradient(var(--conc) 0 100%); display: grid; place-items: center; flex: none; }
+.donut::after { content: ""; width: 44px; height: 44px; border-radius: 50%; background: var(--white); }
+.big { font-size: 46px; font-weight: 800; line-height: 1; }
+.legend { font-size: 13px; color: var(--muted); margin-top: 8px; display: grid; gap: 4px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+td { padding: 14px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.who { display: flex; align-items: center; gap: 12px; }
+.ico { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; color: var(--white); font-weight: 800; }
+.who small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+.meter { height: 22px; border-radius: 6px; background: #EEF5F9; position: relative; overflow: hidden; }
+.meter span { position: absolute; inset: 0 auto 0 0; border-radius: 6px; background: repeating-linear-gradient(90deg, var(--first) 0 3px, var(--dilute) 3px 9px); }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; }
+
+/* agent console */
+.console { display: grid; grid-template-columns: 330px 1fr; gap: 18px; }
+.q { border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; margin-bottom: 10px; background: var(--white); }
+.q.on { border-color: var(--full); box-shadow: 0 0 0 3px rgba(94,162,211,.18); }
+.q .id { font-size: 12px; color: var(--muted); }
+.q .t { font-weight: 700; margin: 4px 0 8px; font-size: 14px; }
+.reply { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 18px; margin-top: 14px; color: #7C93A8; font-size: 14px; }
+.reply span { flex: 1; }
+.list-notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+.list-notes .card p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.7; }
+@media (max-width: 900px) {
+  .palette { grid-template-columns: repeat(4, 1fr); }
+  .screen, .staff, .grid, .console, .list-notes { grid-template-columns: 1fr; }
+  .side-light, .side-dark { display: none; }
+  .sheet { flex-direction: column; align-items: center; }
+  .dhero .bot { height: 220px; top: -20px; right: 8px; }
+  .dhero h4 { font-size: 30px; max-width: 60%; }
+}
+</style>
+</head>
+<body>
+<div class="doc">
+  <header>
+    <h1>XX 銀行 AI 客服 — Ink &amp; Wash 改版設計稿</h1>
+    <p>範圍：前台聊天頁、Dashboard、客服人員介面、知識庫維護、管理知識缺口（5 頁）。Dashboard 與客服佇列的數字皆取自目前後端的真實資料。</p>
+    <div class="palette">
+      <div class="sw" style="background:#F2FAFA;color:#195392">Rice Paper<small>#F2FAFA・頁面底色</small></div>
+      <div class="sw" style="background:#CBE4F0;color:#195392">Dilute Ink<small>#CBE4F0・卡片漸層</small></div>
+      <div class="sw" style="background:#A5D0E9;color:#0F2C4A">First Stroke<small>#A5D0E9・邊框/次要</small></div>
+      <div class="sw" style="background:#81BCDF;color:#0F2C4A">Half Strength<small>#81BCDF・圖表</small></div>
+      <div class="sw" style="background:#5EA2D3;color:#0F2C4A">Full Ink<small>#5EA2D3・強調/圖示</small></div>
+      <div class="sw" style="background:#4185BC;color:#fff">Dark Wash<small>#4185BC・耳機/圖表</small></div>
+      <div class="sw" style="background:#286AA5;color:#fff">Concentrated<small>#286AA5・主要按鈕</small></div>
+      <div class="sw" style="background:#195392;color:#fff">Carbon Ink<small>#195392・標題/深色</small></div>
+    </div>
+  </header>
+
+  <!-- 01 mascot -->
+  <section class="block">
+    <div class="block-title"><span class="num">01</span><h2>小豐新造型</h2></div>
+    <p class="note">依 bot-des 左圖的造型與身體結構：Q 版大頭、透明玻璃頭罩、戴耳機、^^ 笑眼加音波嘴、圓肩、一體成形的手腳（不分節、和身體相連）、下半身用淺藍接縫線劃出雙腿、厚底靴，改用色卡的藍色系。用 Three.js 建 3D 模型、實際打光算圖（<code>design-prototype/mascot-3d.html</code>），輸出成透明背景 PNG。</p>
+    <div class="sheet">
+      <div style="text-align:center">
+        <img src="../assets/mascot_full.png" alt="小豐全身" style="height:470px">
+        <div class="cap">全身：聊天首頁、Dashboard 主視覺</div>
+      </div>
+      <div>
+        <div class="avatars">
+          <img src="../assets/mascot_head.png" alt="" style="width:120px;background:#F2FAFA">
+          <img src="../assets/mascot_head.png" alt="" style="width:56px">
+          <img src="../assets/mascot_head.png" alt="" style="width:38px">
+        </div>
+        <div class="cap">頭像：聊天訊息、客服人員介面（取代現在的 mascot_avatar.svg）</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 chat home -->
+  <section class="block">
+    <div class="block-title"><span class="num">02</span><h2>前台聊天首頁（還沒開始對話時）</h2></div>
+    <p class="note">依參考圖最右邊的畫面：上方置中的小標、大尺寸的小豐、藍色標籤、大字問候、垂直排列的建議問題，底部漸層和圓角輸入框。免責聲明縮小，移到輸入框下方。側欄維持淺色，因為客戶要在這裡登入。</p>
+    <div class="frame">
+      <div class="chrome"><i></i><i></i><i></i><span>localhost:8501</span></div>
+      <div class="screen">
+        <aside class="side-light">
+          <nav class="nav">
+            <a class="on" href="#">💬 AI 客服</a>
+            <a href="#">📊 Dashboard</a>
+            <a href="#">🧑‍💼 客服人員介面</a>
+            <a href="#">📚 知識庫維護</a>
+            <a href="#">🧩 管理知識缺口</a>
+          </nav>
+          <div class="rail-card">
+            <h4>🔐 登入 / Log in</h4>
+            <div class="lbl">帳號 / Username</div><div class="field"></div>
+            <div class="lbl">密碼 / Password</div><div class="field"></div>
+            <span class="btn primary block">登入 / Login</span>
+          </div>
+          <div class="rail-card">
+            <h4>💡 可以問：</h4>
+            <div class="lbl" style="line-height:2">• 信用卡年費多少？<br>• ATM 每天可以提多少？<br>• 轉帳手續費怎麼算？</div>
+          </div>
+          <span class="btn block">💬 開始新對話</span>
+        </aside>
+        <main class="chat-main">
+          <div class="topbar">XX 銀行 AI 客服</div>
+          <img class="hero-bot" src="../assets/mascot_full.png" alt="小豐">
+          <span class="badge">🏦 XX 銀行 AI 客服・小豐</span>
+          <div class="greet">嗨，我是小豐<br>今天想問什麼呢？</div>
+          <p class="greet-sub">信用卡費用、帳戶服務、轉帳規則都可以問；登入後還能查帳單和消費明細。</p>
+          <div class="pills">
+            <span class="pill">信用卡年費多少？如何免年費？</span>
+            <span class="pill">ATM 每天最多可以領多少錢？</span>
+            <span class="pill">網路銀行有哪些功能？</span>
+          </div>
+          <div style="height:34px"></div>
+          <div class="composer">
+            <span>輸入您的問題（中文或英文皆可）</span>
+            <div class="send"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          </div>
+          <div class="fine">本助理提供之資訊僅供參考，不構成財務建議。實際利率、費用以官網公告為準。</div>
+        </main>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:24px">對話開始後：客戶訊息用深藍底白字，小豐的回覆用白色卡片，延伸問題改成藍框小標籤。</p>
+    <div class="frame">
+      <div class="chrome"><i></i><i></i><i></i><span>localhost:8501</span></div>
+      <div class="screen">
+        <aside class="side-light">
+          <nav class="nav"><a class="on" href="#">💬 AI 客服</a><a href="#">📊 Dashboard</a><a href="#">🧑‍💼 客服人員介面</a></nav>
+          <div class="rail-card"><h4>✅ 已登入：陳小明</h4><span class="btn block">登出 / Logout</span></div>
+        </aside>
+        <div class="convo">
+          <div class="msg user"><div class="uav">🙂</div><div class="bubble">轉帳手續費怎麼算？</div></div>
+          <div class="msg ai"><img src="../assets/mascot_head.png" alt="小豐"><div class="bubble">本行互轉<b>免手續費</b>；跨行轉帳用網路銀行、APP 或 ATM 每筆 <b>NT$15</b>，臨櫃每筆 <b>NT$30</b>。<div class="src">📚 參考來源：transfer_rules.md</div></div></div>
+          <div class="chips"><span class="lbl" style="align-self:center">💡 您可能還想問：</span><span class="chip">每天轉帳上限是多少？</span><span class="chip">外幣匯款怎麼收費？</span></div>
+          <div style="max-width:760px;width:100%;margin:8px auto 0"><span class="btn block">⭐ 結束對話並評分</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 dashboard -->
+  <section class="block">
+    <div class="block-title"><span class="num">03</span><h2>Dashboard</h2></div>
+    <p class="note">依 dashboard.jpg：深色側欄、白色大面板；左上是主視覺卡，小豐從卡片上緣探出來，下方是半透明的數字列；右側是長條圖和圓餅圖卡片；底部是「AI 呼叫成本」表格，對應參考圖的 Earnings 表格。參考圖裡的漲跌百分比（▲32%）我沒放，因為後端目前沒有歷史比較資料，不想放假數字。</p>
+    <div class="frame">
+      <div class="chrome"><i></i><i></i><i></i><span>localhost:8501/Dashboard</span></div>
+      <div class="staff">
+        <aside class="side-dark">
+          <div class="brand"><b>🏦</b>XX 銀行後台</div>
+          <a href="#">💬 AI 客服（前台）</a>
+          <a class="on" href="#">📊 Dashboard</a>
+          <a href="#">🧑‍💼 客服人員介面</a>
+          <a href="#">📚 知識庫維護</a>
+          <a href="#">🧩 管理知識缺口</a>
+          <hr>
+          <a href="#">🔄 自動更新：開</a>
+        </aside>
+        <div class="panel">
+          <div class="ph"><h3>營運總覽</h3><span class="meta">資料來源：後端 /stats・/cost/summary・即時</span></div>
+          <div class="grid">
+            <div class="dhero">
+              <i class="dot" style="left:46%;top:24px;width:10px;height:10px"></i>
+              <i class="dot" style="left:52%;top:210px;width:14px;height:14px;opacity:.8"></i>
+              <i class="dot" style="left:30px;top:250px;width:8px;height:8px;background:var(--half)"></i>
+              <h4>今天有 25 張<br>待處理服務單</h4>
+              <div style="position:relative"><span class="btn dark">前往客服人員介面 ›</span></div>
+              <img class="bot" src="../assets/mascot_full.png" alt="小豐">
+              <div class="kpis">
+                <div class="kpi"><div class="k">服務單總數</div><div class="v">35</div><div class="s">轉換率 50%</div></div>
+                <div class="kpi"><div class="k">待處理</div><div class="v" style="color:var(--conc)">25</div><div class="s">需要客服專員接手</div></div>
+                <div class="kpi"><div class="k">未解決查詢</div><div class="v">35</div><div class="s">知識缺口的線索</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <h5>未解決原因 Top 5</h5>
+              <div class="bars">
+                <div><b>18</b><span style="height:100%;background:var(--conc)"></span>知識庫不足</div>
+                <div><b>10</b><span style="height:56%;background:var(--full)"></span>要求真人</div>
+                <div><b>4</b><span style="height:22%;background:var(--conc)"></span>敏感資料</div>
+                <div><b>1</b><span style="height:7%;background:var(--full)"></span>需核准</div>
+                <div><b>1</b><span style="height:7%;background:var(--conc)"></span>帳務爭議</div>
+              </div>
+            </div>
+            <div class="card">
+              <h5>客戶滿意度</h5>
+              <div class="donut-row">
+                <div class="donut"></div>
+                <div>
+                  <div class="big">5.0<span style="font-size:18px;color:var(--muted);font-weight:700"> / 5</span></div>
+                  <div class="legend"><span><i style="background:var(--conc)"></i>😄 5 分・2 則</span><span><i style="background:var(--dilute)"></i>低分（1–2）0%</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:18px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><h5>AI 呼叫成本與延遲</h5><span class="meta" style="font-size:13px;color:var(--muted)">累計 <b style="color:var(--ink)">$0.0426</b>・19 次呼叫・平均 1,500 ms</span></div>
+            <table>
+              <thead><tr><th>呼叫端點</th><th>次數</th><th>成本 (USD)</th><th style="width:36%">平均延遲</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><div class="who"><div class="ico" style="background:var(--conc)">意</div><div>意圖分類<small>classify_intent</small></div></div></td><td>10</td><td>$0.0214</td><td><div class="meter"><span style="width:42%"></span></div></td><td><b>971</b> ms</td></tr>
+                <tr><td><div class="who"><div class="ico" style="background:var(--full)">答</div><div>FAQ 回答（串流）<small>qa_answer_stream</small></div></div></td><td>5</td><td>$0.0121</td><td><div class="meter"><span style="width:97%"></span></div></td><td><b>2,245</b> ms</td></tr>
+                <tr><td><div class="who"><div class="ico" style="background:var(--dark)">驗</div><div>Grounding 驗證<small>verifier</small></div></div></td><td>2</td><td>$0.0043</td><td><div class="meter"><span style="width:64%"></span></div></td><td><b>1,479</b> ms</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note" style="margin:16px 4px 0">下方原有的「低分回饋」「最近未解決查詢」「最近服務單」三張表格保留，改成同樣的白色圓角卡片樣式。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 other staff pages -->
+  <section class="block">
+    <div class="block-title"><span class="num">04</span><h2>客服人員介面（知識庫維護、管理知識缺口也套用同一個外框）</h2></div>
+    <p class="note">後台 4 頁共用深色側欄、白色大面板、粗體標題和圓角卡片。客服人員介面改成左右兩欄：左邊是案件佇列卡片，右邊是對話。對話裡 AI 的訊息用新的小豐頭像。</p>
+    <div class="frame">
+      <div class="chrome"><i></i><i></i><i></i><span>localhost:8501/客服人員介面</span></div>
+      <div class="staff">
+        <aside class="side-dark">
+          <div class="brand"><b>🏦</b>XX 銀行後台</div>
+          <a href="#">💬 AI 客服（前台）</a><a href="#">📊 Dashboard</a><a class="on" href="#">🧑‍💼 客服人員介面</a><a href="#">📚 知識庫維護</a><a href="#">🧩 管理知識缺口</a>
+        </aside>
+        <div class="panel">
+          <div class="ph"><h3>客服人員介面</h3><span class="meta">🔄 每 5 秒自動更新・待處理 25 件</span></div>
+          <div class="console">
+            <div>
+              <div class="q on"><div class="id">T-20261009-002</div><div class="t">使用者主動要求真人｜信用卡客戶</div><span class="tag" style="background:var(--dilute);color:var(--carbon)">一般</span> <span class="tag" style="background:#FDEBD8;color:#9A4E12">待處理</span></div>
+              <div class="q"><div class="id">T-20261009-001</div><div class="t">AI 判定知識庫不足</div><span class="tag" style="background:var(--dilute);color:var(--carbon)">一般</span> <span class="tag" style="background:#FDEBD8;color:#9A4E12">待處理</span></div>
+              <div class="q"><div class="id">T-20260829-001</div><div class="t">AI 判定知識庫不足</div><span class="tag" style="background:var(--dilute);color:var(--carbon)">一般</span> <span class="tag" style="background:#FDEBD8;color:#9A4E12">待處理</span></div>
+            </div>
+            <div class="card" style="background:linear-gradient(180deg,#fff,var(--rice))">
+              <h5>T-20261009-002・對話</h5>
+              <div class="convo" style="background:none;padding:0;min-height:0;gap:12px">
+                <div class="msg user"><div class="uav">🙂</div><div class="bubble">2，我想問信用卡帳單分期</div></div>
+                <div class="msg ai"><img src="../assets/mascot_head.png" alt="小豐"><div class="bubble">收到！已將您的身分（信用卡客戶）與問題描述一併送出，正在為您轉接真人客服，請稍候。</div></div>
+              </div>
+              <div class="reply"><span>輸入回覆給客戶…</span><span class="btn primary" style="flex:none">送出回覆</span><span class="btn" style="flex:none">標記已解決</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 notes -->
+  <section class="block">
+    <div class="block-title"><span class="num">05</span><h2>套用到 Streamlit 時的差異</h2></div>
+    <div class="list-notes">
+      <div class="card"><h5>側欄</h5><p>參考圖的左側是只有圖示的窄欄。Streamlit 側欄的頁面選單一定會顯示文字，所以會做成「深色、帶文字」的側欄，寬度約 220px。</p></div>
+      <div class="card"><h5>小豐</h5><p>是真的 3D 模型算出來的 PNG。要改造型、顏色或姿勢，改 mascot-3d.html 再重新輸出就好。</p></div>
+      <div class="card"><h5>圖表</h5><p>長條圖和圓餅圖會用 Altair 畫，改成色卡的顏色和圓角；樣式會盡量接近，但細節（例如字體間距）以 Streamlit 能做到的為主。</p></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
