@@ -186,8 +186,8 @@ def _lang() -> str:
     current_lang()   # makes sure ?lang= / the switcher state is read before we look at it
     # A language picked with the switcher wins; otherwise follow the language the
     # customer is writing in (set from each reply's X-Language header).
-    lang = st.session_state.ui_lang if st.session_state.get("ui_lang_manual") else st.session_state.get("language", "zh")
-    return lang if lang in ("zh", "en") else "zh"
+    lang = st.session_state.ui_lang if st.session_state.get("ui_lang_manual") else st.session_state.get("language", "en")
+    return lang if lang in ("zh", "en") else "en"
 
 
 def t(key: str, **kwargs) -> str:
@@ -241,7 +241,7 @@ def _restore_from_backend(session_id: str) -> bool:
 def init_session():
     defaults = {
         "messages": [],
-        "language": "zh",
+        "language": "en",
         "welcomed": False,
         "user_id": None,
         "user_name": None,

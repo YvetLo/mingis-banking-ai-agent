@@ -27,7 +27,7 @@ import streamlit as st
 from strings import STRINGS
 
 LANGS = {"zh": "中文", "en": "English"}
-DEFAULT_LANG = "zh"
+DEFAULT_LANG = "en"   # English by default; the sidebar switch (or ?lang=zh) selects 中文
 
 
 # ── language state ───────────────────────────────────────────────────────────

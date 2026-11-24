@@ -1,21 +1,23 @@
+**English** · [繁體中文](evaluation.zh-TW.md)
+
 # Evaluation Framework
 
-Sprint 19 — 先建一份可重複跑、低成本、deterministic 的 golden set，才有基準可以證明「這次調 RAG／prompt／模型是不是真的變好」。設計上刻意先不用 LLM-as-Judge：分數的可信度來自「有標準答案可比對」，不是來自另一個模型的主觀評分。
+Sprint 19: build a repeatable, low-cost, deterministic golden set first, so there is a baseline that can show whether "tuning the RAG / prompt / model this time really made things better". The design deliberately avoids LLM-as-Judge at first: the credibility of the score comes from having a reference answer to compare against, not from another model's subjective rating.
 
-跟 `tests/security/` 的分工：安全測試是硬性 gate（有漏洞就是 fail，不接受部分分數）；這裡是品質基準（單一 case 波動可以接受，但整體聚合指標要守住門檻），兩者故意不共用同一批 case——安全測試的 injection 字串只在 `tests/security/test_prompt_injection.py` 維護一份，這裡的「Safety pass rate」指標直接引用那個套件的通過率，不重造第二份。
+Division of labour with `tests/security/`: the security tests are a hard gate (a hole is a failure, no partial credit); this suite is a quality baseline (a single case may fluctuate, but the aggregate metrics must hold their thresholds). The two deliberately do not share cases. The injection strings are maintained in one place only, `tests/security/test_prompt_injection.py`; the "Safety pass rate" metric here simply cites that suite's pass rate instead of building a second copy.
 
 ## golden_cases.jsonl
 
-`tests/eval/golden_cases.jsonl`，每行一個 JSON case，共 30 題：
+`tests/eval/golden_cases.jsonl`, one JSON case per line, 30 questions:
 
-| 分類 | 題數 | 檔案 |
+| Category | Count | Files |
 |---|---|---|
-| FAQ（檢索來源是否有依據） | 10 | `zh_faq_*` / `en_faq_*` — 涵蓋 9 份知識庫文件裡的 8 份 |
-| 帳務／掛失（登入、工具、workflow） | 8 | `zh_acct_*` / `en_acct_*` / `zh_cardloss_*` / `en_cardloss_*` |
-| Handoff（9 條業務規則中 classify_intent 涵蓋的 7 類） | 8 | `zh_handoff_*` / `en_handoff_*`，6 正例（每類一題）+ 1 負例（「你搞錯了」邊界案例，precision 需要真負例才有意義） |
-| 多輪對話（代名詞子句是否延續前文） | 4 | `zh_multi_*` / `en_multi_*` |
+| FAQ (is the retrieved source well-founded) | 10 | `zh_faq_*` / `en_faq_*`, covering 8 of the 9 knowledge-base documents |
+| Account / lost card (login, tools, workflow) | 8 | `zh_acct_*` / `en_acct_*` / `zh_cardloss_*` / `en_cardloss_*` |
+| Handoff (7 of the 9 business rules that `classify_intent` covers) | 8 | `zh_handoff_*` / `en_handoff_*`: 6 positives (one per category) plus 1 negative (the "you got it wrong" edge case; precision is only meaningful with a real negative) |
+| Multi-turn (does a pronoun clause carry over from earlier turns) | 4 | `zh_multi_*` / `en_multi_*` |
 
-欄位（依 case 類型而定，非全部欄位都出現在每一行）：
+Fields (depending on the case type; not every field appears on every line):
 
 ```json
 {"id": "zh_fraud_001", "category": "handoff", "language": "zh",
@@ -24,126 +26,144 @@ Sprint 19 — 先建一份可重複跑、低成本、deterministic 的 golden se
  "should_handoff": true}
 ```
 
-`category` 決定跑哪個 runner；`should_handoff` 在每一行都存在（即使是 faq/account/card_loss，也明確標 `false`），這樣 handoff 的 precision/recall 才有全體 26 個單輪 case 當分母，不是只在 8 題 handoff bucket 裡自己跟自己比。
+`category` decides which runner picks the case up. `should_handoff` is present on every line (explicitly `false` even for faq / account / card_loss), so handoff precision and recall have all 26 single-turn cases as the denominator, rather than comparing the 8 handoff cases only with each other.
 
-`multi_turn` 用 `"turns": [...]` 取代單一 `"query"`，最後一輪的期望值放在 `expected_intent`/`expected_sources`。
+`multi_turn` uses `"turns": [...]` instead of a single `"query"`; the expected values for the last turn go in `expected_intent` / `expected_sources`.
 
-## 三個 runner
+## Three runners
 
-| 檔案 | 怎麼測 | 成本 |
+| File | How it tests | Cost |
 |---|---|---|
-| `test_intent_regression.py` | 直接呼叫 `classify_intent()`（跟 `tests/test_router_intent.py` 同一支函式），不跑到 FAQ/Account Node | 1 次分類 LLM call / case，每個 case 只分類一次（cache），per-case + aggregate 測試共用同一份結果 |
-| `test_retrieval_regression.py` | 直接呼叫 `RAGRetriever.retrieve()`，完全不碰 LLM | 免費，跑最快 |
-| `test_conversation_regression.py` | 完整走 `/chat`，依序送出 `turns`，`history`/`workflow` 像真的前端一樣接力傳遞 | 每輪一次完整生成，4 個 case 最貴 |
+| `test_intent_regression.py` | Calls `classify_intent()` directly (the same function as `tests/test_router_intent.py`), without running the FAQ or Account node | One classification LLM call per case; each case is classified once (cached), and the per-case and aggregate tests share the result |
+| `test_retrieval_regression.py` | Calls `RAGRetriever.retrieve()` directly, never touching the LLM | Free and fastest |
+| `test_conversation_regression.py` | Runs the whole `/chat` path, sending `turns` in order, passing `history` / `workflow` along like the real frontend | One full generation per turn; the 4 cases are the most expensive |
 
-跑法：
+How to run:
 ```bash
-pytest tests/eval/                          # 全部
-pytest tests/eval/test_retrieval_regression.py   # 只跑檢索（最快、免費）
+pytest tests/eval/                               # everything
+pytest tests/eval/test_retrieval_regression.py   # retrieval only (fastest, free)
 ```
 
-## v1 四個指標（2026-09-01 基準）
+## The four v1 metrics (2026-09-01 baseline)
 
-| 指標 | 結果 | 算法 |
+| Metric | Result | How it is computed |
 |---|---|---|
-| Intent accuracy | **100%**（26/26） | `test_aggregate_intent_accuracy_meets_threshold`，門檻 90% |
-| Handoff precision / recall | **100% / 100%** | `test_aggregate_handoff_precision_recall_meet_threshold`，門檻各 85% |
-| Retrieval hit rate（Top-5） | **100%**（14/14） | `test_aggregate_retrieval_hit_rate_meets_threshold`，門檻 90% |
-| Safety pass rate | **100%**（27/27，引用 `tests/security/`） | `pytest tests/security/ -q` 的通過率 |
+| Intent accuracy | **100%** (26/26) | `test_aggregate_intent_accuracy_meets_threshold`, threshold 90% |
+| Handoff precision / recall | **100% / 100%** | `test_aggregate_handoff_precision_recall_meet_threshold`, 85% each |
+| Retrieval hit rate (Top-5) | **100%** (14/14) | `test_aggregate_retrieval_hit_rate_meets_threshold`, threshold 90% |
+| Safety pass rate | **100%** (27/27, cited from `tests/security/`) | Pass rate of `pytest tests/security/ -q` |
 
-四個指標都在門檻之上，這份基準線可以拿來對照未來的 prompt／RAG／模型調整有沒有真的變好或變差——低於門檻時 CI 應該紅，而不是「感覺變差了」。
+All four are above their thresholds, so this baseline can be used to check whether future prompt / RAG / model changes really made things better or worse. Below a threshold, CI should go red, rather than someone "feeling it got worse".
 
-## RAG retrieval 升級（2026-09-03）
+## RAG retrieval upgrade (2026-09-03)
 
-5 項待辦清單裡「RAG retrieval 升級：reranker／hybrid search／cache」寫的是「在有評估資料後，再決定是否真的需要」。現在有資料了——結論是**只做了一項最小修復，reranker 和 hybrid search 目前都不做**，理由如下。
+One of the five to-do items, "RAG retrieval upgrade: reranker / hybrid search / cache", said "decide whether it is really needed once there is evaluation data". Now there is data. The conclusion: **only one minimal fix was made; a reranker and hybrid search are both not being built for now**, for the reasons below.
 
-### 已修：多輪對話代名詞子句遺失檢索上下文
+### Fixed: a pronoun clause in a multi-turn conversation lost its retrieval context
 
-起點是 `en_multi_003` 這組對話：
-1. 「What is the daily ATM withdrawal limit?」→ 正確答出 NT$20,000（含加碼管道），`rag_sources=[atm_services.md]`。
-2. 「And the per-transaction limit?」→ 有時**轉真人客服**（`atm_services.md` 裡其實有單筆提款限額的答案），有時正確回答。
+It started with the `en_multi_003` conversation:
+1. "What is the daily ATM withdrawal limit?" → correctly answers NT$20,000 (including the top-up channels), `rag_sources=[atm_services.md]`.
+2. "And the per-transaction limit?" → sometimes **hands over to a human** (`atm_services.md` actually contains the per-transaction limit), sometimes answers correctly.
 
-根因：`qa_node`（`backend/src/agent/nodes.py`）的 `retriever.retrieve(message)` 只嵌入**當輪**的原始文字，不含對話歷史。三個多輪 case 的最後一輪單獨拿去測，分數都落在 `HIGH_CONFIDENCE_THRESHOLD`（0.60）附近或以下：
+Root cause: `retriever.retrieve(message)` in `qa_node` (`backend/src/agent/nodes.py`) embeds only the **current turn's** raw text, without the conversation history. Tested alone, the last turn of each of the three multi-turn cases scored at or below `HIGH_CONFIDENCE_THRESHOLD` (0.60):
 
-| Case | 最後一輪 | 單獨檢索分數 |
+| Case | Last turn | Retrieval score on its own |
 |---|---|---|
-| `zh_multi_001` | 那年費呢? | 0.475 |
+| `zh_multi_001` | "那年費呢?" (and the annual fee?) | 0.475 |
 | `en_multi_003` | And the per-transaction limit? | 0.592 |
-| `zh_multi_002` | 那匯率是用哪一種? | 0.620 |
+| `zh_multi_002` | "那匯率是用哪一種?" (and which exchange rate is used?) | 0.620 |
 
-低於門檻就會觸發 verifier，由 verifier 自己的 LLM 判斷「這些 chunk 夠不夠回答」——**這個判斷本身在多次重跑之間會變動**。同一份測試檔案連續整套跑了三次：第一次 3/4 過（`en_multi_003` 沒過）；第二次 2/4 過（換成 `zh_multi_001`、`zh_multi_002` 沒過，`en_multi_003` 反而過了）；第三次 4/4 全過。沒有任何一個 case 是「每次都掛」或「每次都過」。
+Below the threshold the verifier is triggered, and the verifier's own LLM decides "are these chunks enough to answer". **That judgement itself varies between reruns.** The same test file was run three times in a row: the first run passed 3/4 (`en_multi_003` failed); the second passed 2/4 (this time `zh_multi_001` and `zh_multi_002` failed while `en_multi_003` passed); the third passed 4/4. No single case failed every time or passed every time.
 
-一開始把 `en_multi_003` 用 `xfail(strict=True)` 標記、當成跟 `tests/security/test_authorization.py` 記錄已知漏洞一樣的手法——但這個假設是錯的：`strict=True` 預設「這個 case 會穩定失敗」，實際跑起來它反而在某一輪意外通過，`strict=True` 因此把「模型這次判對了」也算成失敗，等於誤報。已經拿掉該標記，改成誠實記錄現況——這跟 `tests/test_verifier.py` 既有的 3 個 verifier 判斷測試（同樣呼叫真實 LLM 做 sufficient/insufficient 二元判斷，同樣接受偶發雜訊）是一致的做法。
+At first `en_multi_003` was marked `xfail(strict=True)`, treating it like the known holes recorded in `tests/security/test_authorization.py`. That assumption was wrong: `strict=True` presumes the case fails consistently, but it unexpectedly passed in one run, and `strict=True` counted "the model got it right this time" as a failure, a false alarm. The marker was removed and the current state is recorded honestly. This is consistent with the 3 existing verifier-judgement tests in `tests/test_verifier.py` (which also call the real LLM for a sufficient / insufficient binary judgement and also accept occasional noise).
 
-**修法**：`nodes.py` 新增 `_retrieval_query()`，把「上一輪使用者的話」接到這輪查詢前面再做 embedding（只接使用者自己的話，不接 AI 回覆，避免稀釋）。不用額外的 LLM query-rewriting call，純字串接合。修完的分數：
+**The fix**: `nodes.py` gained `_retrieval_query()`, which prepends "the user's previous turn" to the current query before embedding (only the user's own words, never the AI's reply, to avoid dilution). No extra LLM query-rewriting call; plain string concatenation. Scores after the fix:
 
-| Case | 修前 | 修後 |
+| Case | Before | After |
 |---|---|---|
 | `zh_multi_001` | 0.475 | 0.804 |
 | `en_multi_003` | 0.592 | 0.805 |
 | `zh_multi_002` | 0.620 | 0.804 |
 
-三個 case 全部從貼著門檻（甚至門檻下）推到 0.80 附近，穩穩過線。`test_conversation_regression.py` 連續乾跑 3 次都是 4/4，不再是本節上面描述的那種忽好忽壞。新增 `test_retrieval_query_folds_in_prior_user_turn`／`test_retrieval_query_unchanged_on_first_turn`（`tests/test_faq.py`）用純函式鎖住這個邏輯，不用等 LLM。
+All three moved from right at (or below) the threshold to about 0.80, comfortably over the line. `test_conversation_regression.py` ran 3 times in a row at 4/4, no longer the hit-and-miss behaviour described above. `test_retrieval_query_folds_in_prior_user_turn` and `test_retrieval_query_unchanged_on_first_turn` (`tests/test_faq.py`) lock the logic down with a pure function, without waiting for an LLM.
 
-### 評估但不做：reranker
+### Evaluated, not built: reranker
 
-用 golden set 量了 Top-1 準確率（不只是 Top-K 有沒有命中，而是**排第一名的是不是對的**，因為 Top-1 準不準才是 reranker 真正在解的問題）：
+The golden set was used to measure Top-1 accuracy (not just whether Top-K contains the right file, but **whether the top-ranked one is right**, because Top-1 accuracy is what a reranker actually solves):
 
 ```
-Top-1 準確率：11/13 = 85%（Top-5 命中率仍是 100%，見上方四個核心指標）
+Top-1 accuracy: 11/13 = 85% (Top-5 hit rate is still 100%, see the four core metrics above)
 ```
 
-兩個 miss 都是同一組混淆：「換外幣手續費」類問題，`transfer_rules.md` 排到 `foreign_currency_exchange.md` 前面。查了實際被檢索到的內文才發現：**「外幣」這個關鍵字兩份文件都有**（`transfer_rules.md` 的國際匯款段落也提到外幣），所以這不是「embedding 語意飄掉」或「關鍵字對不上」，是兩份文件本來就有主題重疊——跟 Sprint 21（`docs/design_journal.md`）當時記錄的「多份文件都有手續費段落的跨主題混淆」是同一類問題，只是換了兩個新問法重新量到。
+Both misses are the same confusion: for "foreign-currency exchange fee" questions, `transfer_rules.md` ranks ahead of `foreign_currency_exchange.md`. Reading the text that was actually retrieved showed that **the keyword "foreign currency" is in both documents** (the international-transfer section of `transfer_rules.md` also mentions it). So this is not "the embedding drifted semantically" or "keywords do not match"; the two documents genuinely overlap in topic. It is the same kind of problem recorded in Sprint 21 (`docs/design_journal.md`): cross-topic confusion where several documents each have a fee section, just re-measured with two new phrasings.
 
-**不做的理由**：Top-5 命中率已經 100%，代表正確文件永遠有進到 LLM 的 context，兩個 miss 只影響「排序好不好看」跟 `rag_sources` 徽章準不準，不影響客戶拿到的答案對不對。Reranker 要嘛加一個 cross-encoder 模型（多一次推論延遲、多一個模型要維護），要嘛額外呼叫一次 API（多一筆成本），換來的是一個目前對答案正確性沒有實質影響的排序優化。n=13 也太小，不足以評斷「加了 reranker 真的能穩定解決這個混淆」還是「剛好這兩題被修好、換兩題被弄壞」。
+**Why not build it**: the Top-5 hit rate is already 100%, meaning the right document always reaches the LLM's context. The two misses only affect "how nice the ranking looks" and the accuracy of the `rag_sources` badge, not whether the customer gets the right answer. A reranker would either add a cross-encoder model (one more inference of latency, one more model to maintain) or an extra API call (one more cost), in exchange for a ranking improvement that currently has no real effect on answer correctness. n=13 is also too small to tell "adding a reranker reliably fixes this confusion" apart from "these two happen to be fixed and two others happen to break".
 
-比 reranker 便宜的下一步（如果之後真的要動）：像 Sprint 21 那樣直接改善這兩份文件的內容切分/標題，讓「換外幣現鈔」和「國際匯款」的段落語意更分開——這是內容問題，不一定要用模型架構解決。
+A cheaper next step than a reranker (if it is ever needed): as in Sprint 21, improve how those two documents are split and headed, so the "foreign-currency cash exchange" and "international transfer" passages are semantically further apart. This is a content problem, not necessarily one to solve with model architecture.
 
-### 評估但不做：hybrid search（BM25 + embedding）
+### Evaluated, not built: hybrid search (BM25 + embedding)
 
-原本預期 hybrid search（關鍵字比對 + 向量語意）能補上「embedding 語意類似但關鍵字對不上」的案例。但上面那組 miss 剛好反過來證明了這條路對這個語料庫沒什麼用——**兩份混淆的文件關鍵字是重疊的**，BM25 一樣會給兩份文件都打高分，不會比純 embedding 更會分辨。知識庫目前只有 84（中）+ 79（英）個 chunk，內容也都是自然語言 FAQ，沒有商品代碼、帳號、精確數字這種「embedding 抓不到但關鍵字抓得到」的查詢類型——這正是 hybrid search 真正該解決的場景，而這個語料庫幾乎不存在。
+Hybrid search (keyword matching plus vector semantics) was expected to cover cases where "the embedding is semantically similar but the keywords do not match". The miss above, however, shows the opposite: **the two confused documents share keywords**, so BM25 would score both highly and be no better than the embedding at telling them apart. The knowledge base currently has only 84 (Chinese) + 79 (English) chunks, all natural-language FAQ content, with no product codes, account numbers or exact figures, the kind of query "the embedding misses but keywords catch", which is exactly where hybrid search earns its keep. This corpus has almost none.
 
-**結論**：目前資料不支持做 hybrid search。如果之後知識庫擴充到需要查精確代碼/條款編號等關鍵字敏感內容，這個結論要重新評估。
+**Conclusion**: the data does not currently support building hybrid search. If the knowledge base later grows to include keyword-sensitive content such as exact codes or clause numbers, this conclusion should be revisited.
 
-### cache
+### Cache
 
-原始待辦裡也提過 cache。這輪沒有評估，因為它解的是成本/延遲問題，不是這次 benchmark 在量的正確性問題——跟前面兩項不同類，等 tracing/成本監控那個待辦項目做了、有實際延遲/花費數字之後再評估比較合理。
+Caching was also in the original to-do list. It was not evaluated this round because it addresses cost and latency, not the correctness this benchmark measures. Unlike the two items above, it makes more sense to evaluate after the tracing and cost-monitoring item is done and there are real latency and spend numbers.
 
-## 核實政策量測：什麼時候該檢查「資料夠不夠答」（2026-11-21）
+## Verification-policy measurement: when should "is the data enough to answer" be checked (2026-11-21)
 
-**起因（第一手實測）**：一題很長的海外退款問題（「退款台幣比原本少、1.5% 手續費沒退，為什麼？」），在知識庫**沒有**退款規則時，檢索最高分是 **0.664**，高於 0.60 的核實門檻，於是跳過核實，模型用鬆散相關的段落回答，還補了知識庫沒有的理由（「這是大多數銀行的共同做法」）。這正是核實機制本來要擋的「看似合理、其實不一定正確」。
+**What prompted it (first-hand observation)**: a long overseas-refund question ("the refund in NT$ is less than the original, and the 1.5% fee was not refunded, why?"). With **no** refund rule in the knowledge base, the top retrieval score was **0.664**, above the 0.60 verification threshold, so verification was skipped; the model answered from loosely related passages and even added a reason the knowledge base does not contain ("this is what most banks do"). That is exactly the "plausible but not necessarily correct" answer the verification step exists to stop.
 
-**量測**（`claude-haiku-4-5`，核實 `temperature=0`）：
+**Measurement** (`claude-haiku-4-5`, verification at `temperature=0`):
 
-- 可回答的題目：知識庫自己的 62 題 Q&A（中 39／英 23）。
-- 知識庫確定沒有答案的題目：12 題（用關鍵字確認主題不在知識庫內；另 2 題原本也算缺口，後來確認其實有相關內容，排除）。
+- Answerable questions: the knowledge base's own 62 Q&As (39 Chinese / 23 English).
+- Questions the knowledge base definitely has no answer for: 12 (topic confirmed absent from the knowledge base by keyword; 2 more that were first counted as gaps were later found to have related content and were excluded).
 
-| 何時核實 | 擋下的真缺口 | 答得出來卻轉人 | 核實次數 |
+| When to verify | Real gaps caught | Answerable but handed to a human | Verifications run |
 |---|---|---|---|
-| 分數低於 0.60（原本） | **5 / 12** | 3 / 62 | 15 / 62 |
-| 分數低於 0.75 | 11 / 12 | 10 / 62 | 53 / 62 |
-| **每次都核實（現在）** | **12 / 12** | 11 / 62 | 62 / 62 |
+| Score below 0.60 (the original) | **5 / 12** | 3 / 62 | 15 / 62 |
+| Score below 0.75 | 11 / 12 | 10 / 62 | 53 / 62 |
+| **Always (now)** | **12 / 12** | 11 / 62 | 62 / 62 |
 
-- **缺口題的分數是 0.54–0.76，答得出來的題目中位數 0.66，兩邊重疊**，任何單一分數門檻都分不開（與 Sprint 12 的結論一致，這次是更大樣本）。分得開的只有核實本身的判斷：12 題真缺口它全部判定「資料不足」。
-- 「答得出來卻轉人」的 11 題裡，4 題是檢索根本沒找到那篇（此時轉人其實是對的），7 題（約 11%）是核實較嚴格。
-- 代價：每則 FAQ 回答多一次小型模型呼叫，實機首字時間約 3 秒（演練：年費、ATM 題首字 2.9–3.2 秒）。
+- **Gap questions score 0.54 to 0.76, answerable ones have a median of 0.66; the two ranges overlap**, so no single score threshold can separate them (consistent with the Sprint 12 conclusion, this time with a larger sample). The only thing that separates them is the verification judgement itself: it judged all 12 real gaps "insufficient".
+- Of the 11 answerable questions that were handed to a human, 4 were cases where retrieval never found the right document (so handing over was actually right) and 7 (about 11%) were verification being stricter.
+- Cost: one extra small-model call per FAQ answer; measured time to first word about 3 seconds (in rehearsal, the annual-fee and ATM questions took 2.9 to 3.2 seconds).
 
-**決策**：每次 FAQ 回答前都核實（`VERIFY_ALWAYS`，預設開，設 `0` 可退回舊行為），見 ADR-020。
+**Decision**: verify before every FAQ answer (`VERIFY_ALWAYS`, on by default; setting it to `0` restores the old behaviour). See ADR-020.
 
-**更嚴的核實順便挖出的檢索弱點**（尚未修）：77 題人工整理的捷徑裡，有 7 題檢索把**錯的段落**排第一，例如「國內轉帳的手續費怎麼算？」排第一的是**國際匯款**手續費。核實判斷「資料不足」是對的（同一輸入連跑 6 次結果一致）。這 7 題已從捷徑清單移除，檢索本身的改善（例如 rerank 或針對性切塊）列為待辦；`tests/test_shortcuts_verified.py` 確保剩下的捷徑都通過核實。
+**A retrieval weakness the stricter verification dug up** (not yet fixed): among 77 hand-written shortcuts, 7 had retrieval rank the **wrong passage** first, for example for "how is the domestic transfer fee calculated?" the top result was the **international remittance** fee. The verification judgement of "insufficient" was right (the same input run 6 times gave the same result). Those 7 were removed from the shortcut list, and improving retrieval itself (for example reranking or targeted chunking) is on the to-do list; `tests/test_shortcuts_verified.py` makes sure the remaining shortcuts all pass verification.
 
-**限制（請如實引用）**：樣本小（62 + 12），缺口題由我依「知識庫沒有這個主題」人工挑選，不是隨機抽樣；「答得出來」的題目用的是知識庫自己的 Q&A 原句，比真實客戶的問法容易，所以誤擋比例在真實流量上可能更高。這是方向性證據，不是準確率。
+**Limits (please quote honestly)**: the sample is small (62 + 12), and the gap questions were hand-picked by me on the basis of "the knowledge base has no such topic", not randomly sampled. The "answerable" questions use the knowledge base's own Q&A wording, which is easier than real customers' phrasing, so the share of wrongly blocked questions on real traffic may be higher. This is directional evidence, not an accuracy rate.
 
-## 怎麼加新 case
+## Fraud-routing measurement: wording that means "a charge I did not make" (2026-11-23)
 
-1. 在 `golden_cases.jsonl` 加一行，`id` 前綴用語言（`zh_`/`en_`）+ 類別，例如 `zh_faq_011`。
-2. `category` 決定會被哪個 runner 撿到：`faq`/`account`/`card_loss`/`handoff` 進 `test_intent_regression.py`；有 `expected_sources` 的（faq 或 multi_turn）額外進 `test_retrieval_regression.py`；`multi_turn` 進 `test_conversation_regression.py`。
-3. FAQ/multi_turn 案例的 `expected_sources` 建議先手動跑一次 retriever 確認 Top-K 真的命中（`tests/eval/test_retrieval_regression.py` 開頭有 `RETRIEVERS` 可以直接在 REPL 裡試），避免寫一條從一開始就是錯的期望值進版本庫。
+**What prompted it (first-hand observation)**: on the Dashboard, "帳單裡有一筆不明款項，我未消費過此筆金額" ("there is an unidentified charge on my bill, I never spent this amount") had been filed as an ordinary billing dispute, not flagged as urgent fraud. Fraud routing is decided entirely by the LLM classifier's prompt (there is no keyword rule), so the prompt was the thing to measure and fix.
 
-## 之後：LLM-as-Judge（尚未實作）
+**Measurement** (`claude-haiku-4-5`; 12 fraud phrasings and 7 non-fraud phrasings, each run 4 times):
 
-第一版四個指標都是 deterministic 比對（intent 字串相等、來源字串包含、handoff 布林值）。之後要加的是針對**答案品質**本身的評分——groundedness、relevance、completeness、tone，各 1–5 分。設計上會遵守幾個原則，避免 v1 的 deterministic 特性被稀釋：
+| Stage | Fraud phrasings caught as fraud | Other phrasings kept in their correct category |
+|---|---|---|
+| Before the fix | 40 / 48 | 28 / 28 |
+| First fix (any charge the customer did not make or does not recognise is fraud) | 48 / 48 | 24 / 28 |
+| Second fix (also: a purchase the customer did make that was charged twice stays a dispute) | **48 / 48** | **28 / 28** |
 
-- Judge 的 model、prompt 版本、呼叫成本、原始回覆（不只是分數）都要保留，才能事後複查「是 judge 判錯還是真的答錯」。
-- Judge 分數是輔助訊號，不是絕對真實答案——不能拿它去覆蓋 deterministic 指標的紅燈，只能在 deterministic 都綠的情況下，用來比較「這個答案有沒有比較好」這種光靠字串比對測不出來的差異。
-- 不會跟 v1 的四個指標混在同一個聚合門檻裡；會是獨立的第五個指標，獨立報告、獨立門檻。
+- Before the fix the misses were concentrated in two phrasings, each wrong 4 out of 4 times: the sentence above (filed as a dispute) and "I don't recognize this transaction on my bill" (filed as an account lookup). The other ten phrasings were already correct.
+- The first fix introduced a side effect: "商家對我扣了兩次款" ("the merchant charged me twice") was now filed as fraud 4 out of 4 times. The second fix removed it. After it, two full runs in a row scored 76 out of 76 classifications.
+- The classifier also now runs at `temperature=0`, so the same sentence takes the same path every time. `tests/test_fraud_intent.py` (calls the real model) keeps the behaviour from regressing.
+
+**Limits**: 19 hand-picked phrasings. This shows that these wordings are now routed correctly; it does not show that every possible phrasing is (colloquial wording, dialect and typos were not tested).
+
+## How to add a new case
+
+1. Add a line to `golden_cases.jsonl`. Prefix the `id` with the language (`zh_` / `en_`) and the category, for example `zh_faq_011`.
+2. `category` decides which runner picks it up: `faq` / `account` / `card_loss` / `handoff` go to `test_intent_regression.py`; cases with `expected_sources` (faq or multi_turn) also go to `test_retrieval_regression.py`; `multi_turn` goes to `test_conversation_regression.py`.
+3. For FAQ / multi_turn cases, first run the retriever by hand to confirm the Top-K really hits `expected_sources` (`tests/eval/test_retrieval_regression.py` starts with `RETRIEVERS`, which can be tried directly in a REPL), to avoid committing an expectation that was wrong from the start.
+
+## Later: LLM-as-Judge (not yet implemented)
+
+The four v1 metrics are all deterministic comparisons (intent string equality, source string containment, handoff booleans). What comes next is scoring **answer quality** itself: groundedness, relevance, completeness and tone, each 1 to 5. The design will follow a few principles so v1's deterministic character is not diluted:
+
+- The judge's model, prompt version, call cost and raw reply (not just the score) are all kept, so it can later be checked whether "the judge was wrong or the answer really was".
+- A judge score is an auxiliary signal, not ground truth: it must not override a red deterministic metric. It can only be used, when the deterministic ones are all green, to compare "is this answer better", a difference string matching cannot detect.
+- It will not be mixed into the same aggregate threshold as the four v1 metrics; it will be an independent fifth metric with its own reporting and its own threshold.

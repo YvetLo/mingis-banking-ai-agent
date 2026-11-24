@@ -10,7 +10,7 @@
 
 本文件定義 AI Agent 的完整行為規格。Sprint 1-5 以 if/else 函式路由實作，Sprint 6 將重構為 LangGraph State Machine，兩者的外部行為一致，差異只在內部架構。
 
-**為什麼先用函式路由再升級？**（詳見 ADR.md ADR-02）
+**為什麼先用函式路由再升級？**（詳見 ADR.zh-TW.md ADR-02）
 > 先讓業務邏輯跑通，再引入框架複雜度。函式路由清晰易 debug，LangGraph 提供可追蹤的 State 和可組合的 Node，適合作最終展示架構。
 
 ---

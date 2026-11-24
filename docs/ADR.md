@@ -1,596 +1,601 @@
+**English** · [繁體中文](ADR.zh-TW.md)
+
 # Architecture Decision Record (ADR)
 # AI Banking Customer Assistant
 
-記錄每個重要技術決策的原因、取捨與生產環境方案。
+The reason, trade-offs and production path for each important technical decision.
+
+*Some decisions refer to planning-era file names (for example `rag_chain.py`, `docs/agent_design.md`); the current structure is in [architecture.md](architecture.md).*
 
 ---
 
-## ADR-001：前端使用 Streamlit 而非 Next.js
+## ADR-001: Streamlit for the frontend, not Next.js
 
-**決策日期**：2026-07-06
-**狀態**：已採用
+**Date**: 2026-07-06
+**Status**: Adopted
 
-**背景**：
-專案需要一個可 demo 的聊天介面，候選方案為 Next.js（React）與 Streamlit（Python）。
+**Background**:
+The project needs a demo-able chat interface. The candidates were Next.js (React) and Streamlit (Python).
 
-**決策**：選用 Streamlit
+**Decision**: Streamlit
 
-**理由**：
-- 以 Python 撰寫，與後端 AI 技術棧一致，無需學習新框架
-- 開發速度快（聊天介面 < 1 天），讓更多時間專注於 AI 邏輯
-- 對 Python 中等程度的開發者，學習曲線極低
-- Streamlit session_state 可直接管理對話記憶，不需額外狀態管理函式庫
+**Reasons**:
+- Written in Python, consistent with the backend AI stack; no new framework to learn
+- Fast to build (a chat interface in under a day), leaving more time for the AI logic
+- A very gentle learning curve for a developer with intermediate Python
+- Streamlit `session_state` can hold the conversation memory directly, with no extra state-management library
 
-**Trade-off**：
-- UI 客製化程度低（無法做像素級設計）
-- 不支援真正的多用戶並發（每個 session 獨立，無法跨 session 通訊）
-- 不符合企業前端技術棧標準
+**Trade-offs**:
+- Limited UI customisation (no pixel-level design)
+- No true multi-user concurrency (each session is isolated and cannot talk to other sessions)
+- Not the standard enterprise frontend stack
 
-**生產環境方案**：
-換用 Next.js 14（App Router），後端 API 不需改動，只需更換前端呼叫方式。
-聊天介面可用 Vercel AI SDK 快速實作，WebSocket 支援即時串流回覆。
-
----
-
-## ADR-002：Agent 架構使用函式路由而非 LangGraph
-
-**決策日期**：2026-07-06
-**狀態**：已採用（Sprint 1-5），Sprint 6 升級
-
-**背景**：
-AI Agent 需要根據意圖路由到不同的處理模式（FAQ / Account / Workflow / Handoff）。
-候選方案為 LangGraph（Graph-based State Machine）與簡單的 if/else 函式路由。
-
-**決策**：Sprint 1-5 用函式路由，Sprint 6 重構為 LangGraph
-
-**理由**：
-- 函式路由讓每個模式的業務邏輯先跑通，確認行為正確後才重構
-- LangGraph 學習曲線陡峭，若從 Day 1 使用，debug 難度大幅提高
-- 先做對邏輯，再做對架構——這是企業迭代開發的正確順序
-- Sprint 1-5 完成後對每個 Node 的行為已完全清楚，重構有信心
-
-**Trade-off**：
-- 函式路由可讀性佳但擴展性差，加入新意圖需修改核心邏輯
-- 沒有明確的 State 管理邊界，Workflow 狀態需自行管理
-
-**生產環境方案**：
-Sprint 6 已升級為 LangGraph，各 Node 邊界清晰，State 可追蹤，
-未來加入新功能（如 apply_product、dispute_transaction）只需加 Node，不影響現有邏輯。
+**Production path**:
+Switch to Next.js 14 (App Router). The backend API does not change; only the way the frontend calls it does.
+The chat interface can be built quickly with the Vercel AI SDK, and WebSocket supports live streamed replies.
 
 ---
 
-## ADR-003：資料庫使用 SQLite 而非 PostgreSQL
+## ADR-002: Function routing for the agent, not LangGraph
 
-**決策日期**：2026-07-06
-**狀態**：已採用
+**Date**: 2026-07-06
+**Status**: Adopted (Sprints 1-5), upgraded in Sprint 6
 
-**背景**：
-系統需要儲存 Ticket 和未解決問題記錄，候選方案為 SQLite（檔案型）與 PostgreSQL（服務型）。
+**Background**:
+The AI agent must route by intent to different handling modes (FAQ / Account / Workflow / Handoff).
+The candidates were LangGraph (a graph-based state machine) and plain if/else function routing.
 
-**決策**：選用 SQLite
+**Decision**: function routing for Sprints 1-5, refactor to LangGraph in Sprint 6
 
-**理由**：
-- 無需啟動額外的資料庫服務，降低本地開發複雜度
-- Python 內建 `sqlite3` 模組，零額外安裝
-- 資料量小（Demo 級別），SQLite 效能完全足夠
-- Schema 設計與 PostgreSQL 高度相容，切換只需更改連線字串
+**Reasons**:
+- Function routing lets the business logic of each mode work first; only after the behaviour is confirmed correct is it refactored
+- LangGraph has a steep learning curve; using it from day one would make debugging much harder
+- Get the logic right first, then the architecture: this is the right order for enterprise iterative development
+- After Sprints 1-5 the behaviour of every node is fully understood, so the refactor can be done with confidence
 
-**Trade-off**：
-- 不支援多用戶並發寫入（適合單用戶 Demo，不適合生產）
-- 無內建連線池、備份機制
-- 不支援 JSON 型別查詢（PostgreSQL 支援）
+**Trade-offs**:
+- Function routing reads well but scales badly: adding an intent means changing the core logic
+- No clear state-management boundary; workflow state has to be managed by hand
 
-**切換指令**（SQLite → PostgreSQL）：
+**Production path**:
+Sprint 6 already upgraded to LangGraph: node boundaries are clear and state is traceable.
+Adding features later (such as apply_product or dispute_transaction) only requires adding a node, without affecting existing logic.
+
+---
+
+## ADR-003: SQLite for the database, not PostgreSQL
+
+**Date**: 2026-07-06
+**Status**: Adopted
+
+**Background**:
+The system needs to store tickets and unresolved-question records. The candidates were SQLite (file-based) and PostgreSQL (server-based).
+
+**Decision**: SQLite
+
+**Reasons**:
+- No separate database service to start, which lowers local-development complexity
+- Python ships the `sqlite3` module, so there is nothing extra to install
+- The data volume is small (demo scale), and SQLite performance is entirely sufficient
+- The schema is largely compatible with PostgreSQL, so switching only means changing the connection string
+
+**Trade-offs**:
+- No concurrent multi-user writes (fine for a single-user demo, not for production)
+- No built-in connection pooling or backup
+- No JSON-type queries (PostgreSQL supports them)
+
+**Switching command** (SQLite → PostgreSQL):
 ```python
-# SQLite（現在）
+# SQLite (now)
 DATABASE_URL = "sqlite:///./data.db"
 
-# PostgreSQL（生產）
+# PostgreSQL (production)
 DATABASE_URL = "postgresql://user:password@localhost/banking_ai"
 ```
-只需修改這一行，SQLAlchemy ORM 層不需改動。
+Only this line changes; the SQLAlchemy ORM layer would not need to change. *(Planning-era note: the code currently uses `sqlite3` directly, so a real migration would also touch `database.py`.)*
 
 ---
 
-## ADR-004：RAG 向量庫使用 FAISS 而非 ChromaDB
+## ADR-004: FAISS for the vector store, not ChromaDB
 
-**決策日期**：2026-07-06
-**狀態**：已採用
+**Date**: 2026-07-06
+**Status**: Adopted
 
-**背景**：
-FAQ 查詢需要向量搜尋，候選方案為 FAISS（Facebook AI）與 ChromaDB。
+**Background**:
+FAQ lookup needs vector search. The candidates were FAISS (Facebook AI) and ChromaDB.
 
-**決策**：選用 FAISS
+**Decision**: FAISS
 
-**理由**：
-- FAISS 完全本地端，無需啟動額外服務
-- 搜尋速度快，適合 Demo 規模知識庫（< 1000 chunks）
-- 在 AI 社群與業界知名度高，資料與範例多
-- Python 安裝簡單（`pip install faiss-cpu`）
+**Reasons**:
+- FAISS runs entirely locally, with no extra service to start
+- Fast search, suitable for a demo-scale knowledge base (< 1000 chunks)
+- Well known in the AI community and the industry, with plenty of material and examples
+- Easy to install in Python (`pip install faiss-cpu`)
 
-**Trade-off**：
-- FAISS 不支援即時更新 index（需重建），知識庫更新需執行 rebuild 腳本
-- 沒有內建 metadata 過濾功能（ChromaDB 支援）
-- 不支援分散式部署
+**Trade-offs**:
+- FAISS does not support live index updates (it must be rebuilt), so a knowledge-base update needs a rebuild script
+- No built-in metadata filtering (ChromaDB has it)
+- No distributed deployment
 
-**生產環境方案**：
-知識庫規模擴大後，考慮換用 ChromaDB（支援即時更新）或 Pinecone（雲端托管）。
-接口設計已抽象化，切換只需修改 `rag_chain.py` 的 vector store 初始化。
-
----
-
-## ADR-005：Sprint 1 使用 Context Stuffing 而非 RAG
-
-**決策日期**：2026-07-06
-**狀態**：已完成（Sprint 1），Sprint 5 升級為 RAG
-
-**背景**：
-FAQ 查詢的第一個版本，需要決定如何讓 Claude 獲得知識庫資訊。
-
-**決策**：Sprint 1 將全部 FAQ 放入 System Prompt（Context Stuffing）
-
-**理由**：
-- 最快驗證對話邏輯是否正確，無需搭建向量資料庫
-- 知識庫小時（< 5 份文件）token 數可接受
-- 先確認「對話設計正確」，再確認「檢索方式正確」
-
-**Context Stuffing 的限制（Sprint 5 升級 RAG 的原因）**：
-1. FAQ 文件增加後 token 數超出限制（Claude Haiku 最大 200K tokens）
-2. 無法顯示「參考來源文件」（來源標示能增加可信度）
-3. 無法設定 Similarity Threshold 判斷 Fallback
-4. 知識庫更新需重新修改 System Prompt
-
-**這個演進本身就是一項值得記錄的設計過程**：
-> 「我先用最簡單的方式驗證邏輯，遇到真實限制後才引入 RAG，
->  而不是一開始就過度工程化。這讓我能清楚說明 RAG 解決了什麼問題。」
+**Production path**:
+When the knowledge base grows, consider ChromaDB (supports live updates) or Pinecone (cloud-hosted).
+The interface is abstracted, so switching only means changing the vector-store initialisation in `rag_chain.py` *(a planning-era file name; today it is `backend/src/rag/retriever.py`)*.
 
 ---
 
-## ADR-006：LLM 使用 Claude API 而非 OpenAI
+## ADR-005: Context stuffing in Sprint 1, not RAG
 
-**決策日期**：2026-07-06
-**狀態**：已採用
+**Date**: 2026-07-06
+**Status**: Done (Sprint 1), upgraded to RAG in Sprint 5
 
-**背景**：
-系統核心 LLM 的候選方案為 Claude API（Anthropic）與 OpenAI API（GPT）。
+**Background**:
+For the first version of FAQ lookup, a way was needed to give Claude the knowledge-base information.
 
-**決策**：選用 Claude API（claude-haiku-4-5）
+**Decision**: In Sprint 1, put the whole FAQ into the system prompt (context stuffing)
 
-**理由**：
-- 已有 Anthropic API Key，無需額外申請
-- claude-haiku-4-5 速度快、成本低，適合 Demo 頻繁呼叫
-- 支援 200K token context window，大幅降低 Context Stuffing 的限制
-- 與 Claude Code 開發環境一致，技術棧統一
+**Reasons**:
+- The fastest way to verify that the conversation logic is right, without building a vector database
+- While the knowledge base is small (< 5 documents) the token count is acceptable
+- First confirm that "the conversation design is right", then that "the retrieval method is right"
 
-**Trade-off**：
-- OpenAI 在業界知名度更高，部分開發者可能更熟悉 GPT API
-- LangChain 對 OpenAI 的整合文件較多
+**Limits of context stuffing (why Sprint 5 upgraded to RAG)**:
+1. As FAQ documents grow, the token count exceeds the limit (Claude Haiku's maximum is 200K tokens)
+2. It cannot show the "source document" (showing sources adds credibility)
+3. It cannot set a similarity threshold to decide on a fallback
+4. Updating the knowledge base means editing the system prompt
 
-**切換方式**（Claude → OpenAI）：
+**This evolution is itself a design process worth recording**:
+> "I first verified the logic in the simplest way, and only introduced RAG after hitting a real limit,
+>  rather than over-engineering from the start. That lets me say clearly what RAG solved."
+
+---
+
+## ADR-006: Claude API for the LLM, not OpenAI
+
+**Date**: 2026-07-06
+**Status**: Adopted
+
+**Background**:
+The candidates for the system's core LLM were the Claude API (Anthropic) and the OpenAI API (GPT).
+
+**Decision**: Claude API (claude-haiku-4-5)
+
+**Reasons**:
+- An Anthropic API key was already available, with nothing extra to apply for
+- claude-haiku-4-5 is fast and cheap, suitable for frequent demo calls
+- A 200K-token context window greatly reduces the limits of context stuffing
+- Consistent with the Claude Code development environment, so the stack is unified
+
+**Trade-offs**:
+- OpenAI is better known in the industry, and some developers may be more familiar with the GPT API
+- LangChain has more integration documentation for OpenAI
+
+**How to switch** (Claude → OpenAI):
 ```python
-# Claude（現在）
+# Claude (now)
 from anthropic import Anthropic
 client = Anthropic()
 response = client.messages.create(model="claude-haiku-4-5", ...)
 
-# OpenAI（如需切換）
+# OpenAI (if a switch is needed)
 from openai import OpenAI
 client = OpenAI()
 response = client.chat.completions.create(model="gpt-4o-mini", ...)
 ```
-接口邏輯一致，切換成本低。
+The interface logic is the same, so the cost of switching is low.
 
 ---
 
-## ADR-007：中英文採用分離 FAISS Index 而非單一多語言 Index
+## ADR-007: Separate FAISS indexes per language, not one multilingual index
 
-**決策日期**：2026-07-06
-**狀態**：已採用
+**Date**: 2026-07-06
+**Status**: Adopted
 
-**背景**：
-系統需支援中英文雙語查詢。候選方案為：
-(A) 單一多語言 embedding model + 單一 Index
-(B) 語言偵測後路由到對應語言的獨立 Index
+**Background**:
+The system must support Chinese and English queries. The candidates were:
+(A) a single multilingual embedding model with a single index
+(B) detect the language, then route to a separate index for that language
 
-**決策**：選用方案 B（分離 Index + 語言路由）
+**Decision**: option B (separate indexes plus language routing)
 
-**理由**：
-- 多語言 embedding model（如 paraphrase-multilingual-mpnet-base-v2）雖支援跨語言，
-  但實測中文問題常搜到英文文件（向量空間相近但語言不同），造成混淆
-- 分離 Index 確保中文問題一定搜中文文件，英文問題搜英文文件
-- 偵測語言後路由，邏輯清晰可維護
-- 兩份知識庫各自獨立，更新互不影響
+**Reasons**:
+- Although a multilingual embedding model (such as paraphrase-multilingual-mpnet-base-v2) supports cross-language search,
+  in testing, Chinese questions often retrieved English documents (close in vector space but a different language), causing confusion
+- Separate indexes guarantee that a Chinese question always searches Chinese documents and an English question English ones
+- Detecting the language and then routing is clear and maintainable
+- The two knowledge bases are independent, so updating one does not affect the other
 
-**Trade-off**：
-- 需維護兩份平行的知識庫文件（中英文各一份）
-- Index 建立時間 × 2，磁碟空間 × 2
+**Trade-offs**:
+- Two parallel sets of knowledge-base documents (one Chinese, one English) have to be maintained
+- Index build time × 2, disk space × 2
 
-**生產環境方案**：
-若知識庫規模擴大，考慮使用 Cohere multilingual-v3 embedding，
-其跨語言搜尋效果顯著優於 sentence-transformers，可回歸單一 Index。
-
----
-
-## ADR-008：Account Node 改用 Tool-Calling 而非 Context Stuffing
-
-**決策日期**：2026-07-17
-**狀態**：已採用（Sprint 7）
-
-**背景**：
-Sprint 1-6 的帳務查詢，做法是把使用者的存款、信用卡、帳單、近期交易「全部」塞進 system prompt（`format_user_context`），FAQ 和 Account 共用同一次 Claude 呼叫（見 ADR-002 後續與 Sprint 6 design journal）。候選方案為 (A) 繼續 context stuffing，(B) Account Node 改用真正的 tool-calling，讓 Claude 依問題呼叫 `get_account_balance`／`get_credit_card_bill`／`get_transactions`。
-
-**決策**：選用方案 B，Account Node 成為獨立於 FAQ Node 的 tool-calling Agent。
-
-**理由**：
-- Context stuffing 把使用者不相關的資料（例如只問餘額，卻把信用卡額度、帳單、交易明細全部塞進去）都送進 prompt，浪費 token 也增加模型忽略指令、幻覺的機會
-- Tool-calling 讓 Claude 依實際問題決定要呼叫哪個 API，行為更貼近企業真實的 Agent 架構（呼叫核心銀行系統的真實 API，而不是把整包資料吐給 LLM）
-- Node 邊界因此變得名副其實：Sprint 6 的 Account「Node」其實只是 Router 打的一個標籤，Sprint 7 之後才是真正獨立的執行單元
-
-**安全性決策（附帶）**：
-`user_id` 刻意不放進暴露給 Claude 的 tool schema，而是由 Node 層在執行工具時直接注入（見 `backend/src/agent/tools.py`）。這與 `docs/agent_design.md` §4.2-4.4 原始 tool spec（把 `user_id` 列為參數）不同——那份規格是給通用伺服器端 API 設計的；在這裡如果讓模型自己填 `user_id`，等於讓 prompt injection 有機會查詢別人的帳戶，所以改由後端注入，不信任模型輸出的身分參數。
-
-**Trade-off**：
-- 每輪對話可能需要 2 次以上的 Claude API 呼叫（先觸發 tool_use，再送 tool_result 換最終回答），延遲和成本都比 context stuffing 高
-- 需要維護一個 tool-calling loop（`MAX_TOOL_ITERATIONS` 上限防止異常迴圈），比單次呼叫複雜
-- Router 用關鍵字判斷 `account` vs `faq` 意圖，仍可能誤判；誤判時 FAQ Node 的 context stuffing 還留著使用者帳務資料當作安全網（見 Sprint 6 journal），行為上不會完全答不出來，只是沒有用到 tool-calling 的精準度
-
-**生產環境方案**：
-`get_account_balance` 等函式目前是讀記憶體裡的 Mock 資料，正式環境會替換成呼叫核心銀行 API（含逾時、重試、稽核 log）。Router 的關鍵字分類也建議升級為真正的 LLM Intent Classification，降低誤判率。
+**Production path**:
+If the knowledge base grows, consider the Cohere multilingual-v3 embedding,
+whose cross-language search is clearly better than sentence-transformers, which would allow going back to a single index.
 
 ---
 
-## ADR-009：Router 改用 LLM Intent Classification 而非關鍵字比對
+## ADR-008: Tool-calling for the Account node, not context stuffing
 
-**決策日期**：2026-07-20
-**狀態**：已採用（Sprint 9）
+**Date**: 2026-07-17
+**Status**: Adopted (Sprint 7)
 
-**背景**：
-`docs/agent_design.md` §3.1 從 Phase 5（Sprint 1 開始前）就把 Router 定義成「Intent Classification（LLM 分類）」，但 Sprint 1-8 實際上都是用關鍵字比對（`is_card_loss`／`is_handoff_trigger`／`is_account_query`）模擬這個行為——先把業務邏輯和 Node 邊界跑通，分類器本身留到最後再做（ADR-002／ADR-008 都預告了這一步）。候選方案為 (A) 繼續優化關鍵字清單，(B) 換成真正呼叫 Claude 做分類。
+**Background**:
+In Sprints 1-6, account queries put the user's savings, credit cards, bills and recent transactions "all" into the system prompt (`format_user_context`), with FAQ and Account sharing one Claude call (see the follow-up to ADR-002 and the Sprint 6 design journal). The candidates were (A) keep context stuffing, (B) give the Account node real tool-calling, letting Claude call `get_account_balance` / `get_credit_card_bill` / `get_transactions` according to the question.
 
-**決策**：選用方案 B，Router 改用 `backend/src/agent/intent.py` 的 `classify_intent()`。
+**Decision**: option B; the Account node becomes a tool-calling agent separate from the FAQ node.
 
-**理由**：
-- 關鍵字比對的失敗模式是結構性的，不是清單不夠長：「信用卡年費」不含 `ACCOUNT_KW` 任何字，正確落在 FAQ；但關鍵字清單完全無法處理「這張卡的年費什麼時候到期」這種語意上明顯需要個人帳務資料、卻可能誤觸發 FAQ 關鍵字比對邏輯的問題——關鍵字比對只能比對「有沒有出現特定字」，無法理解語意
-- 用 `tool_choice` 強制 Claude 呼叫 `classify_intent` 這個 tool，保證每次都拿到 `faq`／`account`／`card_loss`／`handoff` 四選一的結構化結果，不需要解析自由文字、不會有「模型沒照格式回答」的例外要處理
-- 這是兌現 Sprint 1 就寫好的規格，不是新增功能——這代表「先用簡單方案讓邏輯跑通、驗證過 Node 邊界設計是對的，才引入 LLM 分類的複雜度」這個漸進式做法本身是刻意的工程判斷，不是拖到最後才想到
+**Reasons**:
+- Context stuffing sends data unrelated to the question into the prompt (for example, someone who only asks for a balance gets the card limits, bills and transaction details too), which wastes tokens and raises the chance of the model ignoring instructions or hallucinating
+- Tool-calling lets Claude decide which API to call from the actual question, closer to a real enterprise agent architecture (calling the core banking system's real API rather than dumping the whole record on the LLM)
+- The node boundary becomes real: the Sprint 6 Account "node" was really only a label the Router attached; from Sprint 7 it is a truly independent execution unit
 
-**Trade-off（延遲與成本）**：
-- 不是每一輪都多付一次 API 呼叫：掛失流程進行中（`workflow_step > 0`）和前端強制轉真人客服（`force_handoff`）這兩種情況維持確定性判斷，直接跳過分類器——這兩種本質上是「系統狀態」而非「需要理解使用者說了什麼」，交給 LLM 判斷反而是多餘的不確定性來源
-- 但 FAQ／Account／首次觸發掛失或轉真人客服，這些情境下每輪確實多了一次分類器呼叫（`max_tokens=64`，system prompt 很短），等於這幾類對話從 1 次 Claude 呼叫變成最少 2 次，延遲和成本都比純關鍵字比對高
-- 分類器的準確度不是 100%——實作時第一版就踩到一個具體案例：「你搞錯了，這不是我要的答案」被誤判成 `handoff`，因為這句話本身聽起來像抱怨。修法是在 tool description 裡明確列出反例（純粹表達「答案不對／沒幫助」不算要求轉真人客服，仍要分類到原本主題），並用 `tests/test_router_intent.py` 把這個案例釘成一個會自動失敗的回歸測試
+**Security decision (incidental)**:
+`user_id` is deliberately not part of the tool schema exposed to Claude; the node layer injects it when it runs the tool (see `backend/src/agent/tools.py`). This differs from the original tool spec in `docs/agent_design.md` §4.2-4.4, which listed `user_id` as a parameter; that spec was written for a general server-side API. Here, letting the model fill in `user_id` would let a prompt injection query someone else's account, so the backend injects it and does not trust an identity parameter produced by the model.
 
-**生產環境方案**：
-如果之後要做 §3.1 提到的「信心度低 → 反問用戶」，需要換一種呼叫方式取得信心分數（例如比較模型在拿掉 `tool_choice` 強制呼叫後會不會遲疑、或用 logprobs），目前判斷這對展示核心 Agent 架構的邊際效益不高，Sprint 9 沒有實作。
+**Trade-offs**:
+- A turn may need two or more Claude API calls (first trigger tool_use, then send the tool_result to get the final answer), so latency and cost are higher than with context stuffing
+- A tool-calling loop has to be maintained (`MAX_TOOL_ITERATIONS` caps it to prevent runaway loops), more complex than a single call
+- The Router used keywords to separate `account` from `faq`, which could still misjudge; on a misjudgement the FAQ node's context stuffing still carried the user's account data as a safety net (see the Sprint 6 journal), so it would not completely fail to answer, only without the precision of tool-calling
 
----
-
-## ADR-010：FAQ Node 新增獨立 Grounding Verifier，而非只調高相似度閾值
-
-**決策日期**：2026-07-27
-**狀態**：已採用（Sprint 12）
-
-**背景**：
-一份診斷案例研究發現，RAG 檢索的相似度分數無法可靠判斷「檢索到的內容是否真的回答了問題」——外幣兌換一案裡，三個 chunk 分數（0.421／0.381／0.324）都超過原本的門檻 0.30，但沒有一個真的講外幣兌換。進一步實測 17 個真實問題的分數後，發現「已知缺口」最高分（0.500）反而高於「真正答得出來」的問題最低分（0.482）——兩個類別的分數區間直接重疊，任何單一全域閾值都無法同時抓到缺口又不誤傷真問題。候選方案為 (A) 接受這個限制、只誠實記錄；(B) 調高閾值，接受部分改善但仍會漏接部分案例；(C) 新增一個獨立角色，讀取檢索到的內容本身（而非分數）來判斷是否足以回答。
-
-**決策**：選用方案 C——新增 `backend/src/agent/verifier.py`，用 `tool_choice` 強制結構化輸出判斷「chunk 是否足以回答問題」，只在分數落在模糊地帶（< 0.60）時才觸發，判定不足時提早轉真人客服、跳過 Draft 生成。
-
-**理由**：
-- 分數重疊是根本性的（語料庫小、用詞高度共享），調閾值治標不治本，方案 B 會讓人誤以為問題已解決，比誠實記錄限制更危險
-- 讀取內容本身而非只看分數，才能真正回答「這個回答有沒有依據」，而不是「有沒有東西超過分數線」——這是分數機制在架構上做不到的事
-- 只在模糊地帶觸發，讓多數清楚的流量不用多付延遲成本；順序上「先驗證、再決定要不要生成 Draft」，讓答不出來的情境反而比正常路徑更快（省下最貴的 Draft 生成步驟）
-
-**Trade-off**：
-- 模糊地帶的流量會多付一次 LLM 呼叫的延遲，實測約 2.2～3.8 秒
-- 範圍目前只套用在 FAQ Node（`intent="faq"`），Account Node 的 tool-calling 資料查詢不受影響——這是刻意縮小範圍，兩者的失敗模式結構不同，沒有必要一次擴大
-- 舊的 `rag_low_similarity` 判斷機制被完全取代而非並存，避免對同一次失敗重複記錄兩筆意思相同的 log
-
-**生產環境方案**：
-銀行 FAQ 天生高度重複，正式環境應該幫 Verifier 補上快取（同樣問題＋同樣 chunk 組合命中快取就跳過呼叫），並考慮把「AI 自己判定答不出來」（`verifier_unresolved`）跟「使用者主動要求轉真人客服」（`handoff_intent`）在客服排隊系統裡給予不同優先度。
+**Production path**:
+Functions like `get_account_balance` currently read in-memory mock data; production would replace them with calls to the core banking API (with timeouts, retries and audit logs). The Router's keyword classification should also be upgraded to real LLM intent classification, to lower the misjudgement rate.
 
 ---
 
-## ADR-011：真人客服轉接改用 Ticket + 對話串（Thread）資料模型，而非只擴充現有的 Ticket 記錄
+## ADR-009: LLM intent classification for the Router, not keyword matching
 
-**決策日期**：2026-07-27
-**狀態**：已採用（Sprint 15）
+**Date**: 2026-07-20
+**Status**: Adopted (Sprint 9)
 
-**背景**：
-Sprint 4 起 `tickets` 表就是 insert-only（見 Sprint 8/11/14 的設計日誌反思），只用來記錄「發生過一次轉真人客服事件」，`status` 欄位存在但從未被更新過。這次要做「真人客服可以實際回覆客戶」，最小的做法是繼續沿用 `tickets` 表，加一個 `resolution_note` 欄位讓客服填寫結果；但使用者的需求明確是「對話框」——客戶要能追加訊息、真人客服要能多次回覆，這是一段有順序的多輪對話，不是一筆一次性的處理結果。候選方案為 (A) 在 `tickets` 表本身加欄位存最後一則回覆；(B) 另建一個 `handoff_messages` 表存完整對話串，`tickets` 只維持案件層級的中繼資料（狀態、優先度）。
+**Background**:
+`docs/agent_design.md` §3.1 defined the Router as "intent classification (LLM)" from Phase 5 (before Sprint 1), but in Sprints 1-8 keyword matching (`is_card_loss` / `is_handoff_trigger` / `is_account_query`) simulated it: get the business logic and node boundaries working first, and leave the classifier itself for last (ADR-002 and ADR-008 both foretold this step). The candidates were (A) keep tuning the keyword list, (B) really call Claude to classify.
 
-**決策**：選用方案 B——新增 `handoff_messages` 表（`ticket_id`、`session_id`、`role`、`content`、`created_at`），`tickets` 表維持既有結構，只新增 `update_ticket_status()` 讓 `status` 第一次真正可變。新增共用 helper `escalate_to_human()`（`backend/src/agent/handoff.py`），建立案件的同時把「轉接前對話歷史 + 觸發訊息 + AI 的轉接回覆」一次性寫進對話串，被 Handoff Node（使用者主動要求）跟 FAQ Node 的 Grounding Verifier 分支（Sprint 12，AI 判定知識庫不足）共用。
+**Decision**: option B; the Router now uses `classify_intent()` in `backend/src/agent/intent.py`.
 
-**理由**：
-- 「案件狀態」（一個案件目前是 open 還是 resolved）跟「對話內容」（雙方來回說了什麼）是兩種不同的變動頻率與存取模式——前者是每個案件變動一兩次，後者是每輪互動就新增一筆——混在同一張表要嘛需要不斷 UPDATE 一個大文字欄位（容易在併發時互相覆蓋、也難以保留完整歷史），要嘛只能存最後一則訊息（不符合「對話」的需求，客戶追問第二句話時前一句就不見了）
-- 兩個轉接觸發點（使用者主動 vs Verifier 判定）如果各自寫一套建立案件+寫入訊息的邏輯，未來新增第三個觸發點（例如 Sprint 14 規劃但尚未實作的「盜刷案件優先佇列」）時要改兩處而非一處；共用 helper 讓這件事只有一個實作
-- 沒有為此新增任何新的 LLM 呼叫或改動 Router/FAQ/Account 既有的分類與檢索邏輯——`escalate_to_human()` 是純資料庫操作，接在既有節點回傳結果之後執行
+**Reasons**:
+- The failure mode of keyword matching is structural, not a matter of the list being too short: "credit card annual fee" contains none of the `ACCOUNT_KW` words and correctly lands in FAQ, but the list cannot handle "when does this card's annual fee fall due", which semantically needs personal account data yet may wrongly trigger the FAQ keyword logic. Keyword matching can only check whether certain words appear, and cannot understand meaning
+- Forcing Claude to call the `classify_intent` tool with `tool_choice` guarantees a structured one-of-four result every time (`faq` / `account` / `card_loss` / `handoff`), with no free text to parse and no "the model did not follow the format" exception to handle
+- This honours a spec written in Sprint 1; it is not a new feature. It shows that "first make the logic work with a simple approach, confirm the node-boundary design is right, and only then bring in the complexity of LLM classification" was a deliberate engineering judgement, not something left to the end
 
-**Trade-off**：
-- 多了一張表、四個新端點，比單純加欄位複雜；但複雜度是對應到真實需求（多輪對話）的複雜度，不是過度設計
-- `handoff_messages` 目前沒有已讀/未讀標記，真人客服跟客戶都是「整串重新讀一次」而非「只看新訊息」——demo 規模下沒有效能問題，量大時需要加分頁或游標
-- 真人客服頁面沒有登入與案件指派機制，任何開啟頁面的人都能處理任何案件——這是刻意先不做的範圍（見 `docs/design_journal.md` Sprint 15 反思），demo 階段的權衡
+**Trade-off (latency and cost)**:
+- Not every turn pays for an extra API call: when a lost-card flow is in progress (`workflow_step > 0`) and when the frontend forces a handoff (`force_handoff`), the judgement stays deterministic and skips the classifier. These are essentially "system state" rather than "needing to understand what the user said", and handing them to an LLM would only add an unnecessary source of uncertainty
+- But for FAQ / Account / the first trigger of a lost-card or handoff, each turn does pay for one extra classifier call (`max_tokens=64`, a very short system prompt), so these conversations go from 1 Claude call to at least 2, with higher latency and cost than pure keyword matching
+- The classifier is not 100% accurate. The first version hit a concrete case: "you got it wrong, that is not the answer I wanted" was misclassified as `handoff` because it sounds like a complaint. The fix was to list counter-examples explicitly in the tool description (merely saying "the answer is wrong / unhelpful" is not a request for a human; classify it under the original topic), and to pin the case as a regression test that fails automatically in `tests/test_router_intent.py`
 
-**生產環境方案**：
-正式環境的 `handoff_messages` 應該考慮已讀狀態、真人客服的登入與案件指派（避免兩人同時處理同一案件互相覆蓋回覆），以及 Sprint 14 ADR 遺留的「緊急案件優先佇列」——目前 `priority` 欄位只用於顯示，`/handoff/tickets` 尚未依優先度排序。
-
----
-
-## ADR-012：新增知識存 DB table 並「熱重建＋就地熱抽換」retriever，而非改 markdown 後重啟
-
-**決策日期**：2026-08-02
-**狀態**：已採用（Sprint 17）
-
-**背景**：
-KB 原本是 `data/knowledge_base` 的 markdown，開機時 `build_index.py` 建成 FAISS 索引、`main.py` startup 各載入一次 retriever。要做「維護介面新增知識並立即生效」，有兩個獨立問題:(1) 新增的知識存哪裡;(2) 新增後索引怎麼更新。針對 (1)，候選是「直接改 markdown 檔」vs「存獨立 DB table，與 markdown 一起索引」。針對 (2)，候選是「重跑 build_index 再重啟 server」vs「在執行中的 process 裡熱重建並抽換索引」。
-
-**決策**：
-(1) 新增內容存 `kb_entries` table（帶 language/title/content/tags/status/source/timestamps），markdown 維持不動;索引時 `assemble_docs()` 合併 markdown chunks ＋ active kb_entries。
-(2) `POST /kb/reindex` 重算索引檔後，就地替換 `retrievers` dict 的值（`retrievers[lang] = RAGRetriever(...)`），不重啟、不重建 graph。
-
-**理由**：
-- **存 table 而非改檔**:每條補充知識需要 source（manual/pipeline）、status、時間戳這些治理欄位，markdown 存不了;archive 當軟刪除直接給了回溯路徑（尤其 Feature C 之後會有 AI 生成的草稿入庫，事後發現不好要能退回）;UI 直接編輯檔案脆弱、易誤改既有內容。
-- **就地熱抽換可行的關鍵**:`make_qa_node` 的閉包抓的是 `retrievers` dict 物件，qa_node 每次執行才 `retrievers.get(language)`——所以替換 dict 裡的值，正在跑的 graph 下次呼叫就會拿到新 retriever，不需要任何額外的 reload 機制。這是讀懂既有閉包語意後得到的最簡解，不是新加的框架。
-- **`--reload` 不衝突**:uvicorn 的 reload 只監看 `.py`，寫 `.index`/`.json` 不觸發重啟，熱抽換在同一 process 穩定。
-- **reindex 重用嵌入模型單例**:`reindex_all()` 不傳 model 時取 `retriever._get_model()` 已載入的單例，所以線上呼叫只是重算成本，不是再載一份模型。
-
-**Trade-off**：
-- **全量重建而非增量**:每次 reindex 重算整個索引。demo 規模（幾十 chunk）只是幾秒;KB 大時才需增量/快取。刻意選簡單且正確（增量要維護 meta 與封存/編輯的對齊，易錯）。
-- **並發**:重建期間仍用舊 retriever 服務，單次 assignment 換值在 CPython 是原子的，in-flight 請求用到的舊物件不受影響。沒有做讀寫鎖——demo 可接受，高併發生產環境需要更嚴謹的雙緩衝切換。
-- **測試邊界**:真正的 reindex 會覆寫全域唯一的真實索引且要跑嵌入模型，不放進 pytest（會污染其他依賴索引的測試）;改測純函式 `assemble_docs`，reindex 用 live 驗證。
-
-**生產環境方案**：
-KB 大時改為增量索引或加嵌入快取;熱抽換改雙緩衝（build 到影子索引、就緒後原子切換）以完全避免重建期的延遲抖動;`kb_entries` 可再加版本歷史表（目前 archive/restore 已提供基本回溯，但沒有逐版 diff）。
+**Production path**:
+If the "low confidence → ask the user" behaviour from §3.1 is built later, a different calling style is needed to get a confidence score (for example, checking whether the model hesitates when the forced `tool_choice` is removed, or using logprobs). It was judged to have low marginal value for demonstrating the core agent architecture, so Sprint 9 did not implement it.
 
 ---
 
-## ADR-013：知識優化流程用 LLM 主題聚類 + kb_actionable 護欄，成效用檢索信心 before/after 量化
+## ADR-010: A separate grounding verifier in the FAQ node, not just a higher similarity threshold
 
-> **命名說明**：此功能對外名稱已改為「知識優化流程」（Knowledge Improvement Pipeline），原稱「知識缺口管線」。程式內部識別名稱（`gap_pipeline.py`、`/gap/*` 端點、`kb_gap_drafts` 資料表、`gap_*` 函式）沿用舊名，以免動到既有資料庫與 API；文中的「缺口」指知識庫確實缺少的內容這個概念，並非功能名稱。
+**Date**: 2026-07-27
+**Status**: Adopted (Sprint 12)
 
-**決策日期**：2026-08-02
-**狀態**：已採用（Sprint 18）
+**Background**:
+A diagnostic case study found that RAG similarity scores cannot reliably tell whether "the retrieved content really answers the question". In the foreign-currency-exchange case, three chunks scored (0.421 / 0.381 / 0.324), all above the original threshold of 0.30, yet none of them was actually about foreign-currency exchange. Measuring the scores of 17 real questions then showed that the highest score of the "known gap" (0.500) was higher than the lowest score of the questions that "really can be answered" (0.482): the score ranges of the two categories overlap directly, so no single global threshold can catch the gaps without hurting real questions. The candidates were (A) accept the limitation and only record it honestly; (B) raise the threshold, accepting a partial improvement that still misses some cases; (C) add a separate role that reads the retrieved content itself (not the score) to judge whether it is enough to answer.
 
-**背景**：
-要把累積的失敗訊號（未解決查詢、負評/低分、轉真人客服對話）自動變成可入庫的 FAQ 草稿。三個獨立決策:(1) 怎麼把訊號分群成主題;(2) 怎麼避免把「本該真人客服處理」的訊號變成自助 FAQ;(3) 「成效」怎麼量化。
+**Decision**: option C. Add `backend/src/agent/verifier.py`, which uses forced `tool_choice` structured output to judge "are the chunks enough to answer the question". It was triggered only when the score fell in the ambiguous zone (< 0.60), and on "not enough" it handed over to a human early, skipping draft generation.
 
-**決策**：
-(1) **LLM 主題聚類**（一次 `tool_choice` 強制呼叫回傳 topics＋member_ids＋representative_query），而非 embedding k-means/HDBSCAN。
-(2) 聚類時每個主題附一個 **`kb_actionable`** 布林:只有「加一篇知識庫文章就能自助解決」的資訊性問題為真;需要人工裁量的（費用減免、資料/安全變更、盜刷、爭議、投訴、核准）為假、不生成草稿。
-(3) 成效 = **代表問句的檢索信心 before/after**（入庫前分數 vs 入庫後重建索引後的分數，門檻 0.60），輔以「入庫後同類問題再發生數」。
+**Reasons**:
+- The score overlap is fundamental (a small corpus with highly shared wording). Tuning the threshold treats the symptom, and option B would make people believe the problem was solved, which is more dangerous than honestly recording the limitation
+- Only by reading the content, rather than just the score, can the system answer "is this answer grounded" rather than "did something cross the score line". A score mechanism is architecturally unable to do that
+- Triggering only in the ambiguous zone meant most clear traffic paid no latency. By ordering "verify first, then decide whether to generate a draft", the can't-answer case becomes faster than the normal path (it saves the most expensive step, draft generation)
 
-**理由**：
-- **LLM 聚類 vs embedding 分群**:這個規模（十幾筆）embedding 分群要選 k、群無標籤要再命名、小資料不穩;LLM 分群自帶主題名與代表問句、可解釋、小資料也穩，且與專案既有的 forced-tool-call 手法一致。上千筆才需換 embedding 分群或先粗篩——那是生產規模問題。
-- **kb_actionable 護欄**:使用者需求字面上要「聚類轉真人客服對話」，但照字面全做會把「改聯絡電話」這種政策上必須真人客服的操作變成公開自助 FAQ，破壞 Sprint 14 建立的「該轉真人客服就轉真人客服」原則。來源要廣、入庫要嚴——讓 LLM 在聚類當下就分辨「知識缺口 vs 正確轉接」。實測 14 訊號→7 主題，只有 3 個 actionable。
-- **成效用檢索信心而非「解決率」**:「解決率」需要定義、需要時間累積、容易造假;「代表問句檢索從 0.53 跨到 0.70、且入庫後沒再被問倒」每一步都能被獨立驗證、當場可證。用「先過濾掉當前索引已答得好的訊號」當缺口判準，順勢讓成效錨定在同一把尺（0.60 門檻）上，也讓已入庫主題下次分析自動消失、不需另建去重表。
+**Trade-offs**:
+- Traffic in the ambiguous zone pays the latency of one extra LLM call, measured at about 2.2 to 3.8 seconds
+- The scope was only the FAQ node (`intent="faq"`); the Account node's tool-calling data lookups are unaffected. This was a deliberate narrowing, since the two have structurally different failure modes and there was no need to widen it at once
+- The old `rag_low_similarity` mechanism was fully replaced rather than kept alongside, to avoid logging two records with the same meaning for one failure
 
-**Trade-off**：
-- LLM 聚類的 prompt 有大小上限（`MAX_SIGNALS=80`），上千筆訊號要先粗篩或改嵌入分群。
-- approve 逐筆重建索引（沿用 ADR-012 的熱抽換），批次核准會重建多次;生產應收斂成一次。
-- `kb_actionable=false` 的政策主題目前只是排除，沒有回饋去補強 Router 規則或人力分析（可延伸）。
-- 「同類再發生」用固定嵌入相似度門檻（0.62），需要視語料校準;「略過」的主題用嵌入相似度（0.82）排除，也是啟發式。
-- 測試邊界:analyze（LLM 不確定性）與 approve（覆寫真實索引）不進 pytest，只測確定性的審核 plumbing，重的部分 live 驗證（同 ADR-012 的取捨）。
-
-**生產環境方案**：
-大量訊號改嵌入分群或先粗篩；批次核准合併成一次重建；把 `kb_actionable=false` 的政策主題導向 Router 規則補強與人力配置分析；成效的「再發生」門檻與略過去重門檻依實際語料校準；草稿入庫前再加一道與既有 KB 的去重/衝突偵測（目前靠人工審核把關）。
+**Production path**:
+Bank FAQs are naturally highly repetitive, so production should add a cache to the verifier (skip the call on a cache hit for the same question plus chunk combination), and consider giving "the AI itself judged it cannot answer" (`verifier_unresolved`) and "the user asked for a human" (`handoff_intent`) different priorities in the agent queue.
 
 ---
 
-## ADR-014：真人客服對話的即時更新用 fragment 輪詢；訪客轉接前先收集客戶類別與問題
+## ADR-011: Handoff as a ticket plus a conversation thread, not just extending the existing ticket record
 
-**決策日期**：2026-08-13
-**狀態**：已採用（Sprint 19）
+**Date**: 2026-07-27
+**Status**: Adopted (Sprint 15)
 
-**背景**：
-使用者實測回報「客戶回覆後，客服介面一直沒更新」。Streamlit 的 script 只在互動時重跑，所以 Sprint 15 的雙向真人客服對話在「兩邊都開著等對方」這個最常見的狀態下完全不會更新。同時，訪客直接說「我要找真人客服」開出來的工單只有一句「使用者主動要求真人客服」，接手的專員沒有任何脈絡。
+**Background**:
+Since Sprint 4 the `tickets` table had been insert-only (see the reflections in the Sprint 8/11/14 design journals): it only recorded "a handoff to a human happened once", and the `status` column existed but was never updated. This time the goal was "a human agent can actually reply to the customer". The minimal approach was to keep using the `tickets` table and add a `resolution_note` column for the agent to fill in; but the user's requirement was explicitly a "chat box": the customer must be able to add messages and the agent to reply several times, an ordered multi-turn conversation rather than a one-off outcome. The candidates were (A) add a column to `tickets` itself to hold the last reply; (B) create a separate `handoff_messages` table for the full thread, with `tickets` keeping only case-level metadata (status, priority).
 
-**決策**：
-(1) 客戶端與客服端的對話串都包進 **`st.fragment(run_every=5)`** 自動輪詢;客服端的案件佇列另用 `run_every=15` 的 watcher，**只提示有新案件、不自動切換**。轉接觸發的那一輪補一次 `st.rerun()`，讓畫面立刻切進真人客服對話。
-(2) 新增 **Handoff Intake Node**:`explicit_request` **且未登入**時，先問「1 銀行帳戶客戶／2 信用卡客戶／3 非本行客戶」＋一句問題描述，收集完才呼叫 `escalate_to_human()`;最多問兩輪，之後照樣轉接。客戶類別與描述寫進工單 description 與對話串的結構化區塊。
-(3) Dashboard 直條圖改横向，並改用 **Altair** 而非 `st.bar_chart(horizontal=True)`。
+**Decision**: option B. Add the `handoff_messages` table (`ticket_id`, `session_id`, `role`, `content`, `created_at`); leave the `tickets` table as it was, adding only `update_ticket_status()` so `status` becomes mutable for the first time. Add a shared helper `escalate_to_human()` (`backend/src/agent/handoff.py`) which, when it creates the case, writes "the conversation history before the handoff + the triggering message + the AI's handoff reply" into the thread in one go, shared by the Handoff node (the user asked for a person) and the FAQ node's grounding-verifier branch (Sprint 12, the AI judged the knowledge base insufficient).
 
-**理由**：
-- **fragment vs 整頁 auto-rerun**:整頁自動 rerun 會清掉客服正在輸入的回覆，也會重置選到一半的案件——「每 5 秒清空輸入框」比不會自動更新更糟。fragment 只重跑該區塊。代價是 `st.chat_input` 必須留在 fragment 外（放進去會失去釘底版位），fragment 內的按鈕要用 `st.rerun(scope="app")`。
-- **intake 只用於 explicit_request ＋未登入**:其他 handoff 類別（盜刷、爭議、敏感資料變更…）的觸發訊息本身就描述了問題，再問一次是重複，還會延遲 Sprint 14 特意設計成「立即轉接」的緊急案件;已登入客戶的身份早已掛在工單上。這延續 Sprint 15 續拒絕硬性登入門檻的同一條原則——**收集資訊的價值必須大於它造成的延遲**。
-- **兩輪上限**:一個已經開口要真人客服的客戶不該被機器人卡在填表迴圈裡;收不到就記「未指明」照樣轉接。
-- **Altair vs 內建 horizontal**:`st.bar_chart(horizontal=True)` 確實轉了 90 度，但 y 軸標籤被截斷（「🔍AI 判定知識…」）、軸標題仍是被轉向的中文、固定高度下 Vega 還會為避免重疊**默默丟掉**標籤（4 個類別只顯示 2 個）。Altair 才能設 `labelLimit`、拿掉軸標題、用 `alt.Step` 讓圖高隨列數成長，並釘住整數刻度（否則單筆資料會印出「0 1 1」）。
+**Reasons**:
+- "Case state" (whether a case is open or resolved) and "conversation content" (what each side said back and forth) have different change frequencies and access patterns: the former changes once or twice per case, the latter gains a row every turn. Mixing them in one table either needs constant UPDATEs of one big text column (easy to overwrite under concurrency, and hard to keep a full history) or can only store the last message (not what a "conversation" needs: when the customer follows up with a second sentence, the first would be gone)
+- If the two handoff triggers (user-requested vs verifier-judged) each had their own logic for creating a case and writing messages, adding a third trigger later (for example the "fraud-case priority queue" planned in Sprint 14 but not yet built) would mean changing two places instead of one. A shared helper keeps it to one implementation
+- No new LLM call was added, and the existing classification and retrieval logic of Router / FAQ / Account was not touched. `escalate_to_human()` is pure database work, run after an existing node returns its result
 
-**Trade-off**：
-- 5 秒輪詢在多使用者情境下請求量可觀（每個開著的分頁每 5 秒一次 `GET /handoff/{id}/messages`）;生產環境應改 WebSocket/SSE 推播。
-- 客服端每次 fragment 更新都重繪整串訊息，長對話會讓瀏覽器捲動位置跳動。
-- intake 用規則解析 1/2/3＋關鍵字，選項變多或客戶回答更自由時會失準（fallback 是「未指明」照樣轉接，不會卡住）;要更穩就換一次輕量 LLM 抽取。
-- 訪客路徑從一輪變兩輪，`tests/test_handoff.py` 需經 `guest_escalate()` 驅動;多花的一次 `/chat` 不呼叫分類器（`workflow_step > 0` 走確定性分支），所以沒有額外 LLM 成本。
-- 客戶類別目前只是脈絡資訊，還沒拿來做實際的分組路由。
+**Trade-offs**:
+- One more table and four new endpoints, more complex than adding a column; but the complexity matches a real requirement (multi-turn conversation) and is not over-engineering
+- `handoff_messages` has no read/unread marker, so both agent and customer re-read the whole thread instead of "only the new messages". That is no performance problem at demo scale; at volume it needs pagination or a cursor
+- The agent page had no login or case assignment, so anyone who opens the page can handle any case. This was deliberately out of scope (see the Sprint 15 reflection in `docs/design_journal.md`), a demo-stage trade-off
 
-**生產環境方案**：
-輪詢改 WebSocket/SSE；對話串改增量渲染避免整串重繪；intake 的解析改 LLM 抽取並支援更多選項；客戶類別接上真正的分流路由（不同類別派給不同組別）與 SLA 統計。
+**Production path**:
+Production `handoff_messages` should consider read state, agent login and case assignment (to stop two people handling the same case and overwriting each other's replies), and the "urgent-case priority queue" left over from the Sprint 14 ADR. At the time, the `priority` column was used only for display and `/handoff/tickets` did not yet sort by priority. *(Later, in Sprint 22, the agent console was changed to put urgent cases first.)*
 
 ---
 
-## ADR-015：常見問題捷徑只提供「驗證過答得出來」的問題，且從檢索到的主題延伸
+## ADR-012: New knowledge stored in a DB table, with a hot rebuild and in-place hot swap of the retriever, not editing markdown and restarting
 
-**決策日期**：2026-08-22
-**狀態**：已採用（Sprint 20）
+**Date**: 2026-08-02
+**Status**: Adopted (Sprint 17)
 
-**背景**：
-要在對話框提供常見問題捷徑，並依客戶剛問的問題延伸出下一步可能會問的問題。核心風險只有一個:**捷徑點下去如果答不出來，那個死路是 chatbot 自己造成的**——客戶不是自己亂問，是照著我們給的按鈕點。
+**Background**:
+The knowledge base was originally markdown under `data/knowledge_base`; at start-up `build_index.py` built it into a FAISS index and `main.py` loaded the retriever once at startup. To let the maintenance UI add knowledge "that takes effect immediately", there were two separate questions: (1) where the new knowledge is stored; (2) how the index is updated afterwards. For (1) the candidates were "edit the markdown files directly" vs "a separate DB table, indexed together with the markdown". For (2) they were "rerun build_index and restart the server" vs "hot-rebuild and swap the index inside the running process".
 
-**決策**：
-(1) 候選題目**人工策劃**（`TOPIC_FOLLOWUPS`，依知識庫來源檔分組），不由 LLM 即時生成。
-(2) 每個候選在顯示前都對**當前索引**做一次檢索，分數未達 FAQ Node 的 0.60 信心門檻就不顯示（`_answerable`，結果快取、重建索引時清空）。
-(3) 追問題目取自**這次回答實際檢索到的來源**（`rag_sources`），順序即相關性順序;該主題沒有可用題目時（例如只命中維護介面新增的 kb_entry）退回熱門起始題。
-(4) 帳務類捷徑（`ACCOUNT_SUGGESTIONS`）不做檢索檢查——它們走 Account Node、不碰知識庫——但同樣先實測過。
+**Decision**:
+(1) New content goes in the `kb_entries` table (with language / title / content / tags / status / source / timestamps) and the markdown stays untouched; when indexing, `assemble_docs()` merges the markdown chunks with the active `kb_entries`.
+(2) After `POST /kb/reindex` recomputes the index files, it replaces the values of the `retrievers` dict in place (`retrievers[lang] = RAGRetriever(...)`), with no restart and no graph rebuild.
 
-**理由**：
-- **為什麼不讓 LLM 生成**:LLM 會寫出「看起來很合理但知識庫沒有內容」的題目。而且實測顯示，連「題目直接抄自知識庫的 `## 常見問題` 段落」都不夠安全——5 題裡有 4 題最後轉真人客服（兩題被 Router 正確判為爭議/退費類，兩題檢索命中錯誤檔案）。**「知識庫裡有寫」不等於「chatbot 答得出來」**，唯一可靠的判準是實際跑一次。
-- **為什麼用 0.60 檢索門檻當過濾器**:這正是 FAQ Node 用來決定「直接回答」還是「叫 verifier 覆核（可能轉真人客服）」的同一條線。捷徑要保證走前者。等於直接複用既有的信心定義，不另外發明一套。
-- **為什麼是執行期過濾而非寫死清單**:知識庫會變。新增知識 → 更多捷徑自動亮起來;封存知識 → 依賴它的捷徑在下次重建索引後自動消失，而不是變成死路。這條護欄讓清單隨知識庫一起維護，不需要人記得回來改。
-- **成本**:每個候選一次 embedding 編碼，依索引版本快取，並在啟動與重建索引後預熱。**回應路徑上完全沒有額外 LLM 呼叫**——客戶正在等回覆的那段時間，不該再多花一次模型往返。
-- **近似題過濾用 Jaccard 而非單邊重疊率**:中文問句共用大量虛字（我/的/是/多少），單邊比率會把「我的帳戶餘額還有多少？」誤判成「我這個月帳單多少」的重複而藏起來。
+**Reasons**:
+- **A table rather than editing files**: each supplementary entry needs governance fields (source manual/pipeline, status, timestamps) that markdown cannot hold. Archive as a soft delete gives a way back (especially once AI-generated drafts are published, where it must be possible to roll back one found to be bad). Editing files from the UI is fragile and easy to damage existing content.
+- **What makes the in-place hot swap work**: the closure of `make_qa_node` captures the `retrievers` dict object, and `qa_node` calls `retrievers.get(language)` on every run. So replacing a value in the dict means a running graph gets the new retriever on its next call, with no extra reload mechanism. This is the simplest solution after reading the existing closure semantics, not a newly added framework.
+- **No conflict with `--reload`**: uvicorn's reload only watches `.py` files, so writing `.index` / `.json` does not trigger a restart, and the hot swap is stable within one process.
+- **Reindex reuses the embedding-model singleton**: when `reindex_all()` is not given a model it takes the already loaded singleton from `retriever._get_model()`, so a live call only pays the recomputation cost and does not load another copy of the model.
 
-**Trade-off**：
-- 題庫是人工維護的內容，知識庫大改時要回頭補（測試 `test_every_curated_faq_suggestion_clears_the_threshold` 會指出哪一題失效）。
-- 英文題庫較稀疏（外幣/一般服務/轉帳三個主題目前沒有通過門檻的題目），那些主題會退回熱門題;根因是中英文 chunk 切法讓部分主題整體分數偏低，屬既有的檢索品質問題。
-- 追問取自「實際檢索到的來源」，所以偶爾會順著檢索漂移到鄰近主題（實測「預借現金」的最高分來源是 `atm_services.md`，追問就變成 ATM 題）。相關但不完全貼題，取捨上仍優於「貼題但答不出來」。
-- 過濾只保證「會被自信地回答」，不保證「答案品質好」——後者仍由既有的 grounding verifier 與知識庫內容負責。
+**Trade-offs**:
+- **Full rebuild, not incremental**: every reindex recomputes the whole index. At demo scale (a few dozen chunks) that is a few seconds; only a large knowledge base needs incremental updates or caching. Simple and correct was chosen deliberately (incremental updates need meta to be kept aligned with archive and edit, which is error-prone).
+- **Concurrency**: during the rebuild the old retriever keeps serving, and a single assignment that swaps a value is atomic in CPython, so in-flight requests using the old object are unaffected. There is no read-write lock; that is acceptable for a demo, while high-concurrency production needs a more rigorous double-buffered switch.
+- **Test boundary**: a real reindex overwrites the one global real index and runs the embedding model, so it is not put in pytest (it would pollute other tests that depend on the index). The pure function `assemble_docs` is tested instead, and reindex is verified live.
 
-**生產環境方案**：
-題庫改由知識庫維護介面管理（新增知識時一併填「相關問題」），並在入庫流程自動跑一次可答性檢查；點擊率回饋到排序（常被點的往前）；沒有任何候選通過門檻的主題，直接當成知識缺口訊號送進 Sprint 18 的管線。
+**Production path**:
+For a large knowledge base, move to incremental indexing or add an embedding cache; change the hot swap to double buffering (build into a shadow index, then switch atomically once ready) to avoid any latency jitter during the rebuild; `kb_entries` could gain a version-history table (archive/restore currently gives basic rollback, but no per-version diff).
 
 ---
 
-## ADR-016：知識庫改用「標題感知 + CJK 感知」切塊，TOP_K 3 → 5
+## ADR-013: Knowledge improvement uses LLM topic clustering plus a `kb_actionable` guardrail, and measures the effect as retrieval confidence before/after
 
-**決策日期**：2026-08-23
-**狀態**：已採用（Sprint 21）
+> **Naming note**: this feature is now called the "Knowledge Improvement Pipeline" (formerly the "knowledge-gap pipeline"). The internal identifiers (`gap_pipeline.py`, the `/gap/*` endpoints, the `kb_gap_drafts` table, the `gap_*` functions) keep the old name so existing databases and APIs are not touched; "gap" in the text means the concept of content the knowledge base really lacks, not the feature's name.
 
-**背景**：
-原本的切塊是 `text.split()` 取 400 個「詞」。中文沒有空格，所以**整份中文 markdown 被算成 1 個詞、變成 1 個 chunk**。一份文件一個向量，回答的是「這份文件大致在講什麼」，而不是「哪一段能回答這個問題」。實測後果:「跨行轉帳手續費」的最高分來源是 `foreign_currency_exchange.md`（不是 `transfer_rules.md`）、「定存利率」命中 `loan_overview.md`（貸款利率，不是存款利率）、「收不到 OTP」直接轉真人客服。這也是 Sprint 20 策劃捷徑題庫時好幾題被刷掉的根因。
+**Date**: 2026-08-02
+**Status**: Adopted (Sprint 18)
 
-**決策**：
-(1) 切塊改成**以 markdown 標題為主要邊界**:每個 `##`／`###` 段落各自成塊，超長才退回依大小切窗（整行切，不切斷表格列）。
-(2) 每塊前面掛上**標題路徑**（`轉帳與匯款說明＞國內轉帳＞轉帳方式與手續費`）一起嵌入。
-(3) 長度以 **unit** 計算 = CJK 字元數 + 拉丁詞數，取代 `text.split()`。
-(4) `TOP_K` 3 → 5。
+**Background**:
+Accumulated failure signals (unresolved queries, negative feedback or low scores, handoff conversations) should automatically become FAQ drafts that can be published. Three separate decisions: (1) how to group the signals into topics; (2) how to avoid turning signals that "should be handled by a human" into a self-service FAQ; (3) how to quantify "effect".
 
-**理由**：
-- **標題就是最好的邊界**:這批文件的一個 `##`／`###` 段落剛好就是一個主題（「跨行 ATM 手續費」「年費」），比任何字數切點都準。
-- **標題路徑必須跟著本文一起嵌入**:一個講「年費」但內文從沒再出現「信用卡」三個字的段落，若沒有麵包屑，會輸給一份反覆提到「信用卡」的整份文件。這一項單獨貢獻很大——把重複的 `# 標題` 行從內文移除、只留在麵包屑後，中文 top-1 又從 79% 升到 85%。
-- **`###` 也切**:這是**量測後才決定的**，不是直覺。只切 `##` → 英文 top-1 89%;連 `###` 一起切 → 96%（最終版 100%）。代價是中文 recall@3 掉約 3 個百分點。
-- **TOP_K 提高到 5 補回 recall**:chunk 體積縮小約 6 倍，取 3 塊的內容量遠少於過去的 3 份完整文件。實測中文 recall@3 92%、recall@5 97%;而 5 個段落的文字量仍遠小於以前 3 份整份文件。
+**Decision**:
+(1) **LLM topic clustering** (one forced `tool_choice` call returning topics + member_ids + representative_query), rather than embedding k-means / HDBSCAN.
+(2) For each topic the clustering call attaches a **`kb_actionable`** boolean: true only for informational questions that "adding one knowledge-base article can resolve by self-service"; topics needing human discretion (fee waivers, data or security changes, fraud, disputes, complaints, approvals) are false and no draft is generated.
+(3) Effect = **the representative question's retrieval confidence before/after** (the score before publishing vs after the rebuild, with threshold 0.60), supplemented by "how many similar questions occurred after publishing".
 
-**量測結果**（39 題中文 / 28 題英文，標註每題應命中的檔案）：
+**Reasons**:
+- **LLM clustering vs embedding grouping**: at this scale (a dozen or so signals), embedding grouping needs a choice of k, the groups are unlabeled and must be named afterwards, and small data is unstable. LLM grouping comes with a topic name and a representative question, is explainable, is stable on small data, and matches the project's existing forced-tool-call technique. Only thousands of signals would need embedding grouping or a coarse pre-filter, which is a production-scale problem.
+- **The `kb_actionable` guardrail**: the user's request literally asked to "cluster the handoff conversations", but doing so literally would turn an operation like "change my contact phone number", which policy requires a human to handle, into a public self-service FAQ, breaking the Sprint 14 principle of "hand to a human what should go to a human". Be wide on sources and strict on publishing: let the LLM tell "knowledge gap vs correct handoff" at clustering time. Measured: 14 signals → 7 topics, only 3 actionable.
+- **Retrieval confidence rather than a "resolution rate"**: a "resolution rate" needs defining, needs time to accumulate, and is easy to fake; "the representative question's retrieval went from 0.53 to 0.70 and was not stumped again after publishing" can be verified independently at every step and proven on the spot. Using "first filter out signals the current index already answers well" as the gap criterion anchors the effect to the same yardstick (the 0.60 threshold) and makes published topics disappear from the next analysis without a separate de-duplication table.
 
-| | 中文 before | 中文 after | 英文 before | 英文 after |
+**Trade-offs**:
+- The clustering prompt has a size cap (`MAX_SIGNALS=80`); thousands of signals would need a coarse pre-filter or embedding grouping.
+- Approving rebuilds the index one by one (reusing the hot swap of ADR-012), so approving in a batch rebuilds several times; production should collapse that to one.
+- The policy topics with `kb_actionable=false` are currently only excluded, with no feedback into strengthening Router rules or staffing analysis (an extension).
+- "Similar recurrence" uses a fixed embedding-similarity threshold (0.62) that must be calibrated to the corpus; topics that were "skipped" are excluded with an embedding-similarity threshold (0.82), also a heuristic.
+- Test boundary: analyze (LLM non-determinism) and approve (overwrites the real index) are not in pytest; only the deterministic review plumbing is tested, and the heavy parts are verified live (the same trade-off as ADR-012).
+
+**Production path**:
+Use embedding grouping or a coarse pre-filter for large volumes; merge batch approvals into one rebuild; route the `kb_actionable=false` policy topics into Router-rule strengthening and staffing analysis; calibrate the "recurrence" and skip-dedup thresholds to the real corpus; add a de-duplication / conflict check against the existing knowledge base before a draft is published (human review is the safeguard today).
+
+---
+
+## ADR-014: Live updates of the agent conversation via fragment polling; guest intake before handoff
+
+**Date**: 2026-08-13
+**Status**: Adopted (Sprint 19)
+
+**Background**:
+A user test reported "after the customer replies, the agent console never updates". A Streamlit script only reruns on interaction, so the Sprint 15 two-way human-agent conversation did not update at all in the most common state of "both sides have the page open, waiting for the other". Separately, a ticket opened when a guest simply said "I want a human agent" carried only one line, "the user asked for a human agent", leaving the agent who took it with no context.
+
+**Decision**:
+(1) Both the customer-side and agent-side threads are wrapped in **`st.fragment(run_every=5)`** for automatic polling; the agent's case queue has its own watcher at `run_every=15` that **only signals a new case and never switches automatically**. The turn that triggers the handoff adds one `st.rerun()` so the screen switches into the human conversation immediately.
+(2) Add a **Handoff Intake node**: when `explicit_request` **and not logged in**, first ask "1 bank-account customer / 2 credit-card customer / 3 not a customer of this bank" plus a one-line description of the question, and only call `escalate_to_human()` once collected; ask at most two rounds, then hand over anyway. The customer category and description are written into the ticket description and a structured block of the thread.
+(3) The Dashboard bar chart became horizontal and uses **Altair** rather than `st.bar_chart(horizontal=True)`.
+
+**Reasons**:
+- **Fragment vs a full-page auto-rerun**: a full-page rerun would wipe the reply the agent is typing and reset a case half selected: "clearing the input box every 5 seconds" is worse than not updating automatically. A fragment reruns only that block. The cost is that `st.chat_input` must stay outside the fragment (inside it loses its pinned-to-bottom placement), and buttons inside a fragment must use `st.rerun(scope="app")`.
+- **Intake only for explicit_request and not logged in**: for the other handoff categories (fraud, dispute, sensitive data change…) the triggering message already describes the problem, so asking again is repetition and would delay the urgent cases Sprint 14 designed as "hand over immediately"; a logged-in customer's identity is already on the ticket. This continues the same principle as Sprint 15's refusal of a hard login gate: **the value of the information collected must outweigh the delay it causes**.
+- **A two-round cap**: a customer who has already asked for a human must not be trapped by a bot in a form loop; if nothing is collected, record "not specified" and hand over anyway.
+- **Altair vs the built-in horizontal option**: `st.bar_chart(horizontal=True)` does rotate 90 degrees, but the y-axis labels are truncated ("🔍AI 判定知識…"), the axis title is still the rotated Chinese text, and at a fixed height Vega **silently drops** labels to avoid overlap (only 2 of 4 categories were shown). Only Altair allows setting `labelLimit`, removing the axis title, letting the chart height grow with the row count through `alt.Step`, and pinning integer ticks (otherwise a single data point prints "0 1 1").
+
+**Trade-offs**:
+- 5-second polling produces a considerable request volume with many users (every open tab makes one `GET /handoff/{id}/messages` every 5 seconds); production should switch to WebSocket/SSE push.
+- On the agent side every fragment update redraws the whole thread, so a long conversation makes the browser scroll position jump.
+- Intake parses 1/2/3 plus keywords by rules; with more options or freer customer answers it becomes unreliable (the fallback is "not specified" and a handover anyway, so it never gets stuck). A lightweight LLM extraction would be more robust.
+- The guest path goes from one turn to two, so `tests/test_handoff.py` has to drive it through `guest_escalate()`; the extra `/chat` call does not call the classifier (`workflow_step > 0` takes the deterministic branch), so there is no extra LLM cost.
+- The customer category is currently only context; it is not yet used for any real grouping or routing.
+
+**Production path**:
+Replace polling with WebSocket/SSE; render the thread incrementally to avoid redrawing the whole thing; switch the intake parsing to LLM extraction with more options; connect the customer category to real triage routing (different categories to different teams) and SLA statistics.
+
+---
+
+## ADR-015: Suggested questions only offer "verified answerable" questions, extended from the retrieved topic
+
+**Date**: 2026-08-22
+**Status**: Adopted (Sprint 20)
+
+**Background**:
+The chat box should offer suggested questions and, based on what the customer just asked, extend into the next questions they might ask. There is one core risk: **if a suggestion cannot be answered when clicked, that dead end is created by the chatbot itself**. The customer is not asking at random; they clicked a button we gave them.
+
+**Decision**:
+(1) The candidate questions are **hand-curated** (`TOPIC_FOLLOWUPS`, grouped by knowledge-base source file), not generated live by an LLM.
+(2) Before each candidate is shown, one retrieval is run against the **current index**; if the score does not reach the FAQ node's 0.60 confidence threshold, it is not shown (`_answerable`, cached, cleared when the index is rebuilt).
+(3) Follow-up questions come from **the sources the answer actually retrieved** (`rag_sources`), in relevance order; when the topic has no usable question (for example it hit only a `kb_entry` added in the maintenance UI), fall back to the popular starter questions.
+(4) Account-type suggestions (`ACCOUNT_SUGGESTIONS`) get no retrieval check, since they go through the Account node and do not touch the knowledge base, but they were also tested for real beforehand.
+
+**Reasons**:
+- **Why not let an LLM generate them**: an LLM writes questions that look reasonable but have no content in the knowledge base. And testing showed that even "questions copied straight from the knowledge base's `## FAQ` section" are not safe enough: of 5 questions, 4 ended in a handoff (two were correctly classified by the Router as dispute/refund, two retrieved the wrong file). **"Written in the knowledge base" does not mean "the chatbot can answer it"**; the only reliable criterion is to actually run it.
+- **Why the 0.60 retrieval threshold as the filter**: it is exactly the line the FAQ node uses to decide "answer directly" or "ask the verifier to review (possibly handing over)". A suggestion must be guaranteed to take the former. That reuses the existing definition of confidence instead of inventing another.
+- **Why a runtime filter rather than a hard-coded list**: the knowledge base changes. Add knowledge and more suggestions light up automatically; archive knowledge and the suggestions that depend on it disappear automatically after the next rebuild instead of becoming dead ends. This guardrail lets the list be maintained together with the knowledge base, with nobody having to remember to come back and edit it.
+- **Cost**: one embedding encode per candidate, cached per index version and warmed at start-up and after a rebuild. **There is no extra LLM call on the response path**: while the customer waits for the reply there must be no additional model round trip.
+- **Near-duplicate filtering uses Jaccard rather than one-sided overlap**: Chinese questions share many function words (我/的/是/多少), so a one-sided ratio would wrongly judge "how much is left in my account balance?" a duplicate of "how much is my bill this month" and hide it.
+
+**Trade-offs**:
+- The question bank is hand-maintained content and must be revisited after large knowledge-base changes (the test `test_every_curated_faq_suggestion_clears_the_threshold` points out which one has gone stale).
+- The English bank is sparser (the foreign-currency / general-services / transfer topics currently have no question that clears the threshold), so those topics fall back to the popular questions. The root cause is that the Chinese and English chunking leaves some topics with low scores overall, an existing retrieval-quality problem.
+- Follow-ups come from "the sources actually retrieved", so they occasionally drift along the retrieval to a neighbouring topic (in testing, the top source for "cash advance" was `atm_services.md`, so the follow-up became an ATM question). Related but not exactly on topic, which is still better than "on topic but unanswerable".
+- The filter only guarantees "will be answered confidently", not "the answer is good"; that remains the job of the existing grounding verifier and the knowledge-base content.
+
+**Production path**:
+Manage the question bank from the knowledge-base maintenance UI (fill in "related questions" when adding knowledge) and run an answerability check automatically in the publishing flow; feed click-through back into the ranking (often-clicked ones first); a topic where no candidate clears the threshold is sent straight into the Sprint 18 pipeline as a knowledge-gap signal.
+
+---
+
+## ADR-016: Heading-aware and CJK-aware chunking for the knowledge base, TOP_K 3 → 5
+
+**Date**: 2026-08-23
+**Status**: Adopted (Sprint 21)
+
+**Background**:
+The original chunking took 400 "words" with `text.split()`. Chinese has no spaces, so **a whole Chinese markdown file counted as 1 word and became 1 chunk**. One vector per document answers "roughly what is this document about", not "which passage can answer this question". Measured consequences: the top source for "cross-bank transfer fee" was `foreign_currency_exchange.md` (not `transfer_rules.md`), "time-deposit interest rate" hit `loan_overview.md` (the loan rate, not the deposit rate), and "I cannot receive the OTP" went straight to a human. This was also the root cause of several questions being scrapped while curating the Sprint 20 suggestion bank.
+
+**Decision**:
+(1) Chunking now **uses markdown headings as the main boundary**: each `##` / `###` section becomes its own chunk, and only if it is too long does it fall back to size-based windows (split on whole lines, never cutting a table row).
+(2) Each chunk gets its **heading path** prepended (`Transfers and remittance > Domestic transfer > How to transfer and fees`) and embedded with it.
+(3) Length is counted in **units** = CJK characters + Latin words, replacing `text.split()`.
+(4) `TOP_K` 3 → 5.
+
+**Reasons**:
+- **The heading is the best boundary**: in these documents a `##` / `###` section happens to be exactly one topic ("cross-bank ATM fee", "annual fee"), more accurate than any character-count cut.
+- **The heading path must be embedded together with the body**: a passage about the "annual fee" whose body never repeats the words "credit card" would lose to a whole document that mentions "credit card" repeatedly, without the breadcrumb. This item alone contributed a great deal: after removing the repeated `# heading` line from the body and keeping it only in the breadcrumb, Chinese top-1 rose again from 79% to 85%.
+- **Splitting `###` too**: this was **decided after measuring**, not by intuition. Splitting only `##` gave English top-1 89%; splitting `###` as well gave 96% (100% in the final version). The cost was Chinese recall@3 dropping by about 3 percentage points.
+- **Raising TOP_K to 5 recovers the recall**: chunks are about 6 times smaller, so the content of 3 chunks is far less than that of the earlier 3 whole documents. Measured Chinese recall@3 is 92% and recall@5 97%; and the text volume of 5 passages is still far smaller than that of the earlier 3 whole documents.
+
+**Measured results** (39 Chinese / 28 English questions, each annotated with the file it should hit):
+
+| | Chinese before | Chinese after | English before | English after |
 |---|---|---|---|---|
-| 正確檔案排第一 | 54% | **85%** | 71% | **100%** |
-| 正確檔案在前三 | 74% | **92%** | 82% | **100%** |
-| 最高分 ≥ 0.60 | 64% | **87%** | 43% | **89%** |
+| Correct file ranked first | 54% | **85%** | 71% | **100%** |
+| Correct file in the top three | 74% | **92%** | 82% | **100%** |
+| Top score ≥ 0.60 | 64% | **87%** | 43% | **89%** |
 
-chunk 數:中文 10 → 84、英文 14 → 79。
+Number of chunks: Chinese 10 → 84, English 14 → 79.
 
-**Trade-off**：
-- chunk 變多 → 索引重建時間與記憶體略增（這個規模無感）。
-- 小 chunk 會**放大錯誤命中的信心分數**:實驗中一個切壞的版本讓「什麼是約定帳號轉帳？」以 0.772 高分命中錯誤檔案。分數變高不等於變準——這也是為什麼決策看的是 top-1／recall 而不是平均分數。
-- 0.60 門檻的語意實質上變嚴了（同一題現在更容易拿高分），Sprint 20 的捷徑題庫因此有更多題目通過，已一併擴充並重新逐題實測。
-- 仍有 3 題中文命中錯誤檔案，都是多份文件各有「手續費／限額」段落的跨主題混淆;正確段落仍在 top-5 之內。
-- 切塊邏輯依賴 markdown 標題結構。若日後知識庫改用無標題的長文，會退回依大小切窗（已有測試涵蓋）。
+**Trade-offs**:
+- More chunks → slightly longer index build time and memory (unnoticeable at this scale).
+- Small chunks can **amplify the confidence score of a wrong hit**: in an experiment, a badly cut version made "what is a designated-account transfer?" hit the wrong file with a high 0.772. A higher score does not mean more accurate, which is why the decision looks at top-1 and recall rather than the average score.
+- The meaning of the 0.60 threshold effectively got stricter (the same question now scores higher more easily), so more questions in the Sprint 20 suggestion bank pass; the bank was expanded and each question re-tested for real.
+- 3 Chinese questions still hit the wrong file, all cross-topic confusion where several documents each have a "fee / limit" section; the correct passage is still within the top 5.
+- The chunking logic depends on the markdown heading structure. If the knowledge base later uses long text with no headings, it falls back to size-based windows (covered by tests).
 
-**生產環境方案**：
-語意切塊或 late-chunking；跨語言分別調 TOP_K；把這份檢索 benchmark 納入 CI，知識庫變更時自動回歸；重排序（rerank）處理「多份文件都有手續費段落」這類跨主題混淆。
-
----
-
-*最後更新：2026-08-23*
-*每個 Sprint 遇到新的重要決策時，在此文件新增 ADR 條目。*
+**Production path**:
+Semantic chunking or late chunking; tune TOP_K per language; put this retrieval benchmark into CI so it regresses automatically when the knowledge base changes; use reranking to handle the cross-topic confusion where several documents have a fee section.
 
 ---
 
-## ADR-017：籠統的帳單問題先追問再轉真人客服，且判斷放在 LLM 分類器之前
-
-**決策日期**：2026-11-18
-**狀態**：已採用（Sprint 22）
-
-**背景**：
-測試時發現，客戶輸入「我的帳單金額有問題」會直接被轉真人客服，案件上看不出是哪一筆、什麼問題，客服人員要從頭問起。業務要求：先請客戶說明哪一筆有問題，回覆後再轉接。實作時要決定「在哪裡判斷這是籠統的帳單問題」。
-
-**選項**：
-- A：改 intent 分類器的 prompt，讓它對這類訊息回傳新的 `clarify` 類別。
-- B：在 Router 呼叫分類器**之前**，用關鍵字規則判斷（帳單＋有問題，且沒有具體線索）。
-- C：讓轉接節點自己決定要不要先追問。
-
-**決策**：選 B。
-
-**理由**：
-- **分類器對這句話不穩定**。同一句「我的帳單金額有問題」連跑 6 次，5 次被分成 `account`（走帳務查詢），1 次分成 `handoff / dispute_or_refund`；「帳單金額有問題」「我的信用卡帳單金額有問題」則分成轉接。若把追問寫在轉接節點（C），那 `account` 的那幾次永遠不會觸發；若靠改 prompt（A），結果仍是機率性的，同一句話今天追問、明天不追問。
-- **這是業務規則，不是語意理解**。「什麼叫籠統」可以明確列舉：沒有金額、沒有「沒刷過」「重複扣款」等具體字眼。規則可測試、可預期，這是 Router 已有的作法（掛失流程進行中、`force_handoff` 都在分類器之前做確定性判斷）。
-- **零 LLM 成本**，而且追問這一輪不用等分類器。
-
-**Trade-off**：
-- 關鍵字規則會漏掉沒列到的說法（例如沒含「帳單」＋問題字眼的說法就不會觸發），漏掉時退回原本行為（分類器決定），不會比以前差。
-- 規則**刻意保守**：只要訊息出現具體線索，或超過 30 字，就不追問。盜刷類（「帳單有一筆我沒刷過」）一律走原本路徑，緊急案件不排在問題後面。
-- `force_handoff`（同一問題連續未解決）時直接跳過追問，已經卡關的客戶不再多一道關卡。
-- 客戶最多被追問兩輪，之後不論回覆什麼都照樣轉接（與訪客資料收集一致，ADR-014）。
-
-**對應測試**：`tests/test_bill_clarify.py`——偵測規則的正反例、追問、回覆後開單且工單帶入說明、取消、過短回覆再問一次後仍轉接、`force_handoff` 跳過。全程不呼叫 LLM。
+*Last updated: 2026-08-23*
+*Each time a sprint meets a new important decision, add an ADR entry to this document.*
 
 ---
 
-## ADR-018：純招呼語用 Router 的確定性規則直接回覆，而不是交給 FAQ 流程
+## ADR-017: Vague bill complaints are clarified first, then handed to a human, with the decision placed before the LLM classifier
 
-**決策日期**：2026-11-18
-**狀態**：已採用（Sprint 22）
+**Date**: 2026-11-18
+**Status**: Adopted (Sprint 22)
 
-**背景**：
-測試發現客戶輸入「你好！」會立刻被轉真人客服。紀錄（`unresolved_queries`）顯示：意圖被分成 `faq`，檢索最高分只有 0.238，低於 0.60 門檻，Verifier 判定資料不足而轉接（10 月的「Hi」同樣如此，0.210）。系統「沒把握就不亂答」的設計本身沒錯，錯在招呼語根本不是需要查資料的問題，卻走進了查資料流程。
+**Background**:
+In testing, a customer typing "something is wrong with the amount on my bill" was handed straight to a human; the case did not say which charge or what the problem was, so the agent had to start asking from scratch. The business requirement: first ask the customer which charge is wrong, and hand over after they answer. The implementation question was "where to decide that this is a vague bill complaint".
 
-**決策**：在 Router、LLM 分類器之前，用規則判斷「整句只是招呼／道謝／道別」，直接回固定訊息（`smalltalk_node`）。
+**Options**:
+- A: change the intent classifier's prompt so it returns a new `clarify` category for such messages.
+- B: use a keyword rule **before** the Router calls the classifier (bill + problem wording, with no specific clue).
+- C: let the handoff node decide whether to ask first.
 
-**理由**：
-- 與 ADR-017 同一原則：這類判斷可以明確列舉、可測試，不需要 LLM；零成本、零延遲。
-- 比「調 Verifier 或調低門檻」安全：門檻是整個系統的信心基準（ADR-010），為了招呼語去動它會連帶影響真正的 FAQ 判斷。
-- 比「加一個 smalltalk 意圖給分類器」穩定：分類器對短句本來就不穩（ADR-017 的 6 次實測）。
+**Decision**: B.
 
-**Trade-off**：
-- 只認明確列出的說法，不在清單內的招呼（例如「嗨嗨嗨嗨」）仍走原本路徑；清單可隨實際對話紀錄擴充。
-- 規則要求「整句只有招呼」，夾帶問題（「你好，年費多少？」）一律走原本路徑，所以不會吞掉真正的問題；測試涵蓋「Hello Mingis, my card was stolen」這類不得被攔截的句子。
-- 順序上 `force_handoff` 與進行中的工作流程優先，避免卡關的客戶被一句「你好」打回去。
-- 回覆是固定文字，不會依上下文變化；換來的是可預期。
+**Reasons**:
+- **The classifier is unstable on this sentence.** The same "我的帳單金額有問題" ("something is wrong with my bill amount") run 6 times was classified `account` (the account lookup) 5 times and `handoff / dispute_or_refund` once; the variants "帳單金額有問題" and "我的信用卡帳單金額有問題" were classified as handoff. If the clarifying question were written in the handoff node (C), the `account` cases would never trigger it; relying on a prompt change (A) would still give a probabilistic result, the same sentence being asked about today and not tomorrow.
+- **This is a business rule, not semantic understanding.** "What counts as vague" can be listed explicitly: no amount, and none of the specific words such as "never swiped" or "charged twice". A rule is testable and predictable, and it is how the Router already works (a lost-card flow in progress and `force_handoff` are both decided deterministically before the classifier).
+- **Zero LLM cost**, and the clarifying turn does not wait for the classifier.
 
-**對應測試**：`tests/test_smalltalk.py`。
+**Trade-offs**:
+- A keyword rule misses wording that was not listed (for example a message without "bill" plus a problem word does not trigger it); when it misses, it falls back to the old behaviour (the classifier decides), which is no worse than before.
+- The rule is **deliberately conservative**: if the message contains any specific clue, or is longer than 30 characters, it does not ask. Fraud-type messages ("there is a charge on my bill I never made") always take the original path, so urgent cases do not queue behind a question.
+- On `force_handoff` (the same problem repeatedly unresolved) the question is skipped, so a customer who is already stuck does not face one more gate.
+- The customer is asked at most two rounds, after which the case is handed over whatever they reply (consistent with guest intake, ADR-014).
 
----
-
-## ADR-019：後台介面雙語用「集中字串表＋自己畫的導覽列」，工單原因在顯示時翻譯，不改資料庫
-
-**決策日期**：2026-11-20
-**狀態**：已採用（Sprint 22）
-
-**背景**：要讓整個平台（客戶端與四個後台頁）支援中文／English 切換。程式裡約 270 行含中文字串，且有三個不好處理的點：(1) Streamlit 的頁面選單由檔名產生，沒辦法翻譯；(2) 客戶端首頁原本就有「依客戶輸入語言自動切換」的邏輯；(3) 服務單的「原因」是以中文文字存進資料庫。
-
-**決策**：
-- 文字集中在一個中英並列的字串表（`frontend/strings.py`），以 `t("area.name")` 取用，缺英文時退回中文。
-- 隱藏 Streamlit 內建選單，用 `st.page_link` 自己畫導覽列，標籤才能翻譯；語言切換器放在導覽列下方。
-- 語言存在 `session_state`，同時寫入網址 `?lang=`，重新整理不會遺失。
-- 客戶端首頁：手動切換優先，沒切換才跟著對話語言（Mingis 回覆的語言仍依客戶輸入）。
-- 工單原因維持中文存庫，**顯示時**用對照表翻譯固定標籤；客戶自己輸入的內容原樣顯示。
-
-**理由**：
-- 集中字串表 + 自動測試，比散落在各頁的 `if lang == "en"` 容易維護，也讓「漏翻」變成測試失敗。
-- 換掉導覽列是唯一能讓選單跟著語言走的辦法，代價是少了 Streamlit 自帶的「目前頁面」標示，已用自己的樣式補回。
-- 不改資料庫：把原因改存代碼要遷移舊資料並動後端，風險比這次的價值大。
-
-**Trade-off**：
-- 工單原因的對照表是手動維護的（`i18n.REASON_EN`）。後端新增一個原因標籤卻忘了加英文，畫面會顯示中文；`tests/test_i18n.py` 會比對 `handoff.CATEGORY_LABEL` 與對照表，漏了就失敗。
-- 客戶端首頁仍有一部分文字在 `app.py` 自己的字串表，而不是 `strings.py`，因為它早就有一套完整的雙語文字，這次沒有搬家，只換了語言的決定規則。
-- 沒有翻譯的是資料本身：客戶對話、客服人員回覆、知識庫條目。
+**Tests**: `tests/test_bill_clarify.py`: positive and negative examples of the detection rule, the question, opening a ticket after the reply with the explanation carried into the ticket, cancel, a too-short reply asked again and then handed over, and `force_handoff` skipping. No LLM is called.
 
 ---
 
-## ADR-020：FAQ 回答前每次都做資料充分性核實，而不是只在檢索分數偏低時才做
+## ADR-018: Plain greetings are answered directly by a deterministic Router rule, not sent into the FAQ flow
 
-**決策日期**：2026-11-21
-**狀態**：已採用（Sprint 22）
+**Date**: 2026-11-18
+**Status**: Adopted (Sprint 22)
 
-**背景**：ADR-010 引入 Grounding Verifier，但只在檢索最高分低於 0.60 時才呼叫（高信心的檢索跳過，省延遲）。實測發現一題很長的海外退款問題在知識庫沒有答案時仍得到 0.664，跳過核實後，模型用相近段落回答並補上知識庫沒有的理由。量測（見 `docs/evaluation.md`「核實政策量測」）顯示缺口題與可答題的分數區間重疊（缺口 0.54–0.76、可答中位數 0.66），沒有任何分數門檻能分開；現行規則 12 題真缺口只擋下 5 題。
+**Background**:
+Testing found that a customer typing "Hello!" was immediately handed to a human. The records (`unresolved_queries`) showed the intent was classified `faq`, the top retrieval score was only 0.238, below the 0.60 threshold, and the verifier judged the data insufficient and handed over (October's "Hi" did the same, at 0.210). The "do not answer when unsure" design was not wrong; the mistake was that a greeting is not a question that needs a lookup, yet it entered the lookup flow.
 
-**選項**：
-- A：維持「低於 0.60 才核實」。
-- B：把門檻提高（0.75、0.80…）。
-- C：每次 FAQ 回答前都核實。
-- D：把核實併進回答生成（一次呼叫，模型自己回報「資料不足」）。
+**Decision**: In the Router, before the LLM classifier, use a rule to decide that "the whole sentence is just a greeting / thanks / goodbye" and reply with a fixed message (`smalltalk_node`).
 
-**決策**：選 C，並保留環境變數 `VERIFY_ALWAYS=0` 作為退路；同時在回答規則加上「不得補充知識庫沒提到的理由，也不得把費用或決定歸因給知識庫沒提到的第三方」。核實改用 `temperature=0`。
+**Reasons**:
+- The same principle as ADR-017: this kind of judgement can be listed explicitly and tested, needs no LLM, and costs no money and no latency.
+- Safer than "tuning the verifier or lowering the threshold": the threshold is the confidence baseline of the whole system (ADR-010), and changing it for greetings would affect real FAQ judgements too.
+- More stable than "adding a smalltalk intent for the classifier": the classifier is inherently unstable on short sentences (the 6-run measurement in ADR-017).
 
-**理由**：
-- B 在實測中等於 C：門檻到 0.80 時 62 題可答題有 60 題仍要核實，卻沒有省到任何東西，所以直接選簡單的 C。
-- 核實本身很準（12 題真缺口全部判定資料不足），問題只在「什麼時候跑」。
-- 銀行情境下，「該轉人時沒轉」的代價高於「多轉一些人」。
+**Trade-offs**:
+- It only recognises explicitly listed phrasings; greetings not on the list (for example "heyyyyy") still take the original path, and the list can be extended from real conversation records.
+- The rule requires "the whole sentence is only a greeting"; if a question is attached ("hello, how much is the annual fee?") it always takes the original path, so it never swallows a real question; the tests cover sentences that must not be intercepted such as "Hello Mingis, my card was stolen".
+- In ordering, `force_handoff` and in-progress workflows come first, so a customer who is stuck is not sent back by a "hello".
+- The reply is fixed text and does not vary with context; the price is predictability.
 
-**Trade-off**：
-- 延遲：每則 FAQ 回答首字時間多約 2–4 秒（演練約 3 秒）；多一次小型模型呼叫，金額很小。
-- 轉人比例上升：62 題可答題中約 11 題（18%）會轉人，其中 4 題是檢索沒找到所以轉人是對的，約 7 題（11%）是核實較嚴格。
-- 不選 D：把判斷併進串流回答需要在串流中途改成轉人、並把建立工單移出節點，改動大、風險高；且獨立核實有量測證據，自我回報沒有。留作之後的優化方向。
-- **捷徑題目必須同步把關**：核實更嚴之後，不能通過核實的捷徑會變成死路。77 題中 7 題未通過（檢索把錯誤段落排第一），已移除，並以 `tests/test_shortcuts_verified.py` 防止回歸。
-- 未修的底層問題：這 7 題顯示的是**檢索**弱點（跨主題混淆），核實只是把它從「默默答錯」變成「轉人」，並沒有讓檢索變好。
+**Tests**: `tests/test_smalltalk.py`.
 
-**對應測試**：`tests/test_verify_always.py`（不呼叫模型：高分也會核實、關閉開關後行為回到舊的）、`tests/test_verifier.py`（海外退款缺口與補上規則後的兩個案例）、`tests/test_shortcuts_verified.py`。
+---
 
+## ADR-019: Bilingual staff UI through a central string table and a hand-drawn navigation bar; ticket reasons translated at display time, with no database change
+
+**Date**: 2026-11-20
+**Status**: Adopted (Sprint 22)
+
+**Background**: The whole platform (customer UI and four staff pages) should switch between Chinese and English. About 270 lines of code contained Chinese strings, with three awkward points: (1) Streamlit's page menu is generated from file names and cannot be translated; (2) the customer home page already had logic to "switch automatically by the language the customer types"; (3) a ticket's "reason" is stored in the database as Chinese text.
+
+**Decision**:
+- Put the text in one side-by-side Chinese/English string table (`frontend/strings.py`), used with `t("area.name")`, falling back to Chinese when English is missing.
+- Hide Streamlit's built-in menu and draw the navigation bar with `st.page_link`, so the labels can be translated; the language switch sits under the navigation bar.
+- The language lives in `session_state` and is also written to the URL as `?lang=`, so a refresh does not lose it.
+- Customer home page: a manual switch wins; without one it follows the conversation language (Mingis's reply language still follows what the customer types).
+- Ticket reasons stay in Chinese in the database; the fixed labels are translated through a lookup table **at display time**; what the customer typed is shown as written.
+
+*(Later change, 2026-11-25: the default UI language is now English, with `?lang=zh` or the sidebar switch selecting Chinese. The mechanism above is unchanged.)*
+
+**Reasons**:
+- A central string table plus automated tests is easier to maintain than `if lang == "en"` scattered across pages, and it turns a "missed translation" into a test failure.
+- Replacing the navigation bar is the only way to make the menu follow the language; the cost is losing Streamlit's own "current page" marker, which was restored with custom styling.
+- No database change: storing the reasons as codes would mean migrating old data and touching the backend, a risk larger than this change's value.
+
+**Trade-offs**:
+- The ticket-reason lookup table is maintained by hand (`i18n.REASON_EN`). If the backend adds a reason label and forgets the English, the screen shows Chinese; `tests/test_i18n.py` compares `handoff.CATEGORY_LABEL` with the table and fails if one is missing.
+- Part of the customer home page's text is still in `app.py`'s own string table rather than `strings.py`, because it already had a complete bilingual set; it was not moved this time, only its language decision rule changed.
+- What is not translated is the data itself: customer conversations, agent replies, and knowledge-base entries.
+
+---
+
+## ADR-020: Verify that the data is sufficient before every FAQ answer, not only when the retrieval score is low
+
+**Date**: 2026-11-21
+**Status**: Adopted (Sprint 22)
+
+**Background**: ADR-010 introduced the grounding verifier but called it only when the top retrieval score was below 0.60 (high-confidence retrievals skipped it to save latency). Testing found that a long overseas-refund question still scored 0.664 when the knowledge base had no answer; with verification skipped, the model answered from similar passages and added a reason the knowledge base does not contain. The measurement (see "Verification-policy measurement" in `docs/evaluation.md`) showed that the score ranges of gap questions and answerable questions overlap (gaps 0.54-0.76, answerable median 0.66), so no score threshold separates them; the existing rule caught only 5 of 12 real gaps.
+
+**Options**:
+- A: keep "verify only below 0.60".
+- B: raise the threshold (0.75, 0.80…).
+- C: verify before every FAQ answer.
+- D: fold the verification into answer generation (one call; the model reports "insufficient data" itself).
+
+**Decision**: C, keeping the environment variable `VERIFY_ALWAYS=0` as a way back; at the same time add to the answer rules "do not add reasons the knowledge base does not state, and do not attribute a fee or decision to a third party the knowledge base does not mention". Verification moves to `temperature=0`.
+
+**Reasons**:
+- B was equal to C in measurement: at a threshold of 0.80, 60 of the 62 answerable questions still needed verification, saving nothing, so the simple C was chosen directly.
+- The verification itself is accurate (it judged all 12 real gaps "insufficient data"); the problem is only "when to run it".
+- In a banking context, the cost of "not handing over when it should have" is higher than "handing over a few more".
+
+**Trade-offs**:
+- Latency: the time to first word of each FAQ answer rises by about 2-4 seconds (about 3 seconds in rehearsal); one more small-model call, at a very small cost.
+- A higher handoff share: about 11 of the 62 answerable questions (18%) are handed over, 4 of which were correctly handed over because retrieval did not find the document, and about 7 (11%) are verification being stricter.
+- D was not chosen: folding the judgement into the streamed answer would mean switching to a handoff in the middle of streaming and moving ticket creation out of the node, a large and risky change; and the independent verification has measurement evidence while self-reporting does not. Left as a future optimisation.
+- **The suggested questions must be gated at the same time**: with stricter verification, a suggestion that cannot pass verification becomes a dead end. 7 of 77 did not pass (retrieval ranked the wrong passage first), were removed, and `tests/test_shortcuts_verified.py` prevents a regression.
+- An unfixed underlying problem: those 7 show a **retrieval** weakness (cross-topic confusion). Verification only turns it from "silently answering wrongly" into "handing to a human"; it did not make retrieval better.
+
+**Tests**: `tests/test_verify_always.py` (no model call: a high score is verified too, and with the switch off the behaviour returns to the old one), `tests/test_verifier.py` (the overseas-refund gap and the case after the rule was added), `tests/test_shortcuts_verified.py`.

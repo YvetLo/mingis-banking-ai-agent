@@ -292,8 +292,8 @@ AI 客服助理可自動處理 80% 以上的標準化查詢，讓真人客服專
 | AI 幻覺 | Claude 可能回答不在知識庫的資訊 | Prompt 限制只根據 context 回答；Similarity threshold 過濾；顯示來源文件 |
 | 知識庫缺口 | 用戶問到知識庫未涵蓋的問題 | Fallback 記錄系統 + 每週人工審查補充 |
 | 語言混用 | 中英文夾雜的輸入（如 Chinglish）| 以主要語言判定；Claude prompt 容錯處理 |
-| Mock API 限制 | 資料為假資料，不代表真實銀行狀態 | 所有 Mock 資料有明確標示；替換真實 API 的方式見 `docs/architecture.md` |
-| 單用戶 Demo 限制 | 本版本未設計多用戶並發 | 生產環境的 Rate Limiting 與快取策略見 `docs/architecture.md` |
+| Mock API 限制 | 資料為假資料，不代表真實銀行狀態 | 所有 Mock 資料有明確標示；替換真實 API 的方式見 `docs/architecture.zh-TW.md` |
+| 單用戶 Demo 限制 | 本版本未設計多用戶並發 | 生產環境的 Rate Limiting 與快取策略見 `docs/architecture.zh-TW.md` |
 
 ---
 
