@@ -1,9 +1,27 @@
-# AI Banking Customer Assistant
+# Mingis — 中英雙語銀行 AI 客服 Agent
 
-Future銀行的 AI 客服助理 **Mingis** — 用 **LangGraph + Claude + RAG** 打造的中英雙語客服系統，
-從「AI 回答問題」一路做到「答不好時轉真人客服 → 真人客服回覆被 AI 變成新知識 → 下次自己答得出來」的完整閉環。
+> **答不出來時，AI 把問題交給真人客服；真人客服的解法，經人工審核後，變成知識庫的新答案。**
+>
+> LangGraph · Claude · RAG（FAISS）· FastAPI · Streamlit　｜　Demo 專案：虛構的 Future銀行，所有客戶與帳務資料皆為模擬。
 
-> Demo / 作品專案。銀行後台採 Mock API，不涉及真實金流。
+![Mingis 最終版架構](docs/assets/architecture-overview.png)
+
+**English summary.** Mingis is a bilingual (Chinese/English) AI customer-service agent for a fictional bank, built with LangGraph, Claude, FAISS-based RAG, FastAPI and Streamlit. The focus is what happens when the AI should *not* answer: the retrieved text is checked before every reply, uncertain or high-risk cases (suspected fraud, disputes, card loss) go to a human agent with the full conversation, and the agent's resolutions are clustered into draft FAQs that a person must approve before they reach the knowledge base. All data is simulated; measurements are small samples and are reported with their limits in [`docs/evaluation.md`](docs/evaluation.md).
+
+---
+
+## 30 秒看懂
+
+| 設計 | 具體做法與實測 |
+|------|----------------|
+| **有依據才回答** | 每次回答前，先由獨立的核實步驟判斷「檢索到的內容夠不夠回答」，不夠就轉真人客服，不硬答。實測發現：知識庫沒有答案時，模型仍會補一段看似合理的理由。在 12 題「知識庫確定沒有答案」的題目中，原本只有 5 題會轉真人客服，改成每次都核實後 12 題全部轉出。**代價**：首字約多等 3 秒，且答得出來的題目有較多被轉出（62 題中 3 → 11 題）。 |
+| **規則在前、LLM 在後** | 進行中的流程、招呼語、籠統的帳單抱怨先用確定性規則處理，其餘才交給溫度為 0 的 LLM 分類器，同一句話永遠走同一條路。疑似盜刷標為緊急；掛失須驗證身分並由客戶確認。 |
+| **人在關鍵點** | 真人客服接手時看得到完整對話，客戶不必重講。任何內容要進知識庫，都必須由人審核核准；核准後不需重啟就生效。 |
+| **可驗證、可追溯** | 269 個自動化測試（含會呼叫真實 Claude 的評估與資安測試）、20 項技術決策紀錄（[ADR](docs/ADR.md)）、逐 Sprint 的[設計日誌](docs/design_journal.md)、LLM 呼叫成本與延遲追蹤。 |
+
+> **關於測量的誠實說明**：上面的數字來自人工挑選的小樣本（62 題可回答題、12 題知識庫沒有答案的題目），是「漏洞已被補上」的方向性證據，**不是整體準確率**。檢索分數代表「找到相關內容」，不代表答對的比例。完整方法與限制見 [`docs/evaluation.md`](docs/evaluation.md)。
+
+> **關於這個 repo**：這是公開用的整理後快照。完整的設計演進見 [`docs/design_journal.md`](docs/design_journal.md) 與 [`docs/ADR.md`](docs/ADR.md)；最終版架構見 [`docs/architecture.md`](docs/architecture.md)。
 
 ---
 
@@ -57,7 +75,8 @@ Future銀行的 AI 客服助理 **Mingis** — 用 **LangGraph + Claude + RAG** 
 ### 1. 環境
 
 ```bash
-cd <專案資料夾>
+git clone https://github.com/YvetLo/mingis-banking-ai-agent.git
+cd mingis-banking-ai-agent
 pip install -r requirements.txt
 
 cp .env.example .env
@@ -150,7 +169,7 @@ Streamlit 前端 ──HTTP──► FastAPI 後端 ──► LangGraph Agent
 ## 專案結構
 
 ```
-ai-banking-assistant/
+mingis-banking-ai-agent/
 ├── backend/
 │   ├── main.py                    FastAPI 應用與所有端點
 │   └── src/

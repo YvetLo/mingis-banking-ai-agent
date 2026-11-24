@@ -305,7 +305,7 @@ Swagger 文件：`http://localhost:8000/docs`。
 ## 11. 專案目錄結構
 
 ```
-ai-banking-assistant/
+mingis-banking-ai-agent/
 ├── backend/
 │   ├── main.py                    FastAPI 應用與所有端點
 │   └── src/
