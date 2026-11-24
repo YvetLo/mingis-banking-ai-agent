@@ -1,14 +1,111 @@
-# Mingis — 中英雙語銀行 AI 客服 Agent
+# Mingis — Bilingual Banking AI Customer-Service Agent · 中英雙語銀行 AI 客服 Agent
 
+[English](#english) · [中文](#中文) · [Quick start · 快速開始](#quick-start--快速開始) · [Documentation · 文件](#documentation--文件)
+
+🎬 **Demo video · Demo 影片**: [Watch · 觀看](https://drive.google.com/file/d/1DLwS8EmWASVOZM4orz_-DIFdo2rz5x4h/view?usp=sharing)
+
+> **When the AI cannot answer, it hands the case to a human agent; the agent's resolution becomes a new knowledge-base answer once a person approves it.**
 > **答不出來時，AI 把問題交給真人客服；真人客服的解法，經人工審核後，變成知識庫的新答案。**
 >
-> LangGraph · Claude · RAG（FAISS）· FastAPI · Streamlit　｜　Demo 專案：虛構的 Future銀行，所有客戶與帳務資料皆為模擬。
+> LangGraph · Claude · RAG (FAISS) · FastAPI · Streamlit ｜ Demo project: a fictional bank, all customer and banking data are simulated · Demo 專案：虛構的 Future銀行，所有客戶與帳務資料皆為模擬。
 
-![Mingis 最終版架構](docs/assets/architecture-overview.png)
+![Mingis final architecture · Mingis 最終版架構](docs/assets/architecture-overview.png)
 
-**English summary.** Mingis is a bilingual (Chinese/English) AI customer-service agent for a fictional bank, built with LangGraph, Claude, FAISS-based RAG, FastAPI and Streamlit. The focus is what happens when the AI should *not* answer: the retrieved text is checked before every reply, uncertain or high-risk cases (suspected fraud, disputes, card loss) go to a human agent with the full conversation, and the agent's resolutions are clustered into draft FAQs that a person must approve before they reach the knowledge base. All data is simulated; measurements are small samples and are reported with their limits in [`docs/evaluation.md`](docs/evaluation.md).
+> **About this repository · 關於這個 repo**
+> This is a cleaned snapshot prepared for public viewing. The design history lives in [`docs/design_journal.md`](docs/design_journal.md) and [`docs/ADR.md`](docs/ADR.md); the final architecture is in [`docs/architecture.md`](docs/architecture.md). *Most design documents are written in Traditional Chinese.*
+> 這是公開用的整理後快照。完整的設計演進見 [`docs/design_journal.md`](docs/design_journal.md) 與 [`docs/ADR.md`](docs/ADR.md)；最終版架構見 [`docs/architecture.md`](docs/architecture.md)。
 
 ---
+
+# English
+
+Mingis is a bilingual (Chinese/English) AI customer-service agent for a fictional bank. Most chatbot demos stop at "it can answer FAQs". This project is about **what happens when the AI should not answer**.
+
+## 30-second overview
+
+| Design | What it does, and what was measured |
+|--------|-------------------------------------|
+| **Answer only with evidence** | Before every reply, a separate check decides whether the retrieved text really answers the question; if not, the case goes to a human agent instead of being guessed. Testing showed that when the knowledge base had no answer, the model still invented a plausible reason. On 12 questions the knowledge base has no answer for, only 5 used to be handed to a human; after checking before every reply, all 12 were. **Cost**: about 3 seconds more before the first word, and more answerable questions are handed over too (3 → 11 out of 62). |
+| **Rules first, LLM second** | In-progress flows, greetings and vague bill complaints are handled by deterministic rules; everything else goes to an LLM classifier at temperature 0, so the same sentence always takes the same path. Suspected fraud is flagged urgent; reporting a lost card requires identity verification and an explicit confirmation. |
+| **A human at the critical points** | A human agent sees the whole conversation, so the customer never has to repeat themselves. Nothing enters the knowledge base without a person's approval, and an approved entry takes effect without a restart. |
+| **Verifiable and traceable** | 269 automated tests (including evaluations that call the real model and security tests), 20 architecture decision records ([ADR](docs/ADR.md)), a sprint-by-sprint [design journal](docs/design_journal.md), and LLM cost and latency tracking. |
+
+> **An honest note on measurement:** the figures above come from small, hand-picked samples (62 answerable questions and 12 questions with no answer in the knowledge base). They are directional evidence that the gap is closed, **not an overall accuracy rate**. A retrieval score means "relevant content was found", not "the answer is correct". Methods and limits: [`docs/evaluation.md`](docs/evaluation.md).
+
+## What this project shows
+
+```
+Customer asks
+   │
+   ├─ Knowledge base answers well   → answer directly (streamed token by token)
+   ├─ Score is ambiguous            → the AI first checks whether the chunks are enough
+   │                                  → not enough: hand to a human agent, no guessing
+   └─ Fraud / dispute / approval…   → 9 business rules hand it to a human agent,
+                                      each recorded separately
+                                    │
+                              A human agent replies (two-way, live conversation)
+                                    │
+                              Customer rates 1–5 (low scores ask why)
+                                    │
+                    The AI clusters "unresolved + low-score + agent replies" into topics
+                                    │
+                    Draft an FAQ → staff review → one-click publish + hot reindex
+                                    │
+                    Measured effect: retrieval confidence for the same question
+                    0.53 → 0.70 (crossing the threshold)
+```
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **FAQ answers (RAG)** | FAISS vector retrieval + Claude generation, grounded in the knowledge base, with sources shown |
+| **Suggested questions** | Starter shortcuts on an empty chat and follow-ups based on the sources actually retrieved; **only questions verified to be answerable are shown**, so a click never ends in a handoff dead end |
+| **Grounding verifier** | Before every FAQ answer, an independent check asks whether the chunks really answer the question; if not, hand off (12 of 12 real gaps caught; `VERIFY_ALWAYS=0` restores "only when the score is low", see ADR-020) |
+| **Account queries** | After login, tool-calling fetches balance / bill / transactions, only what the question needs |
+| **Lost-card flow** | Three-step identity-verified workflow, cancellable at any point |
+| **Handoff to a human** | 9 business trigger rules (fraud, dispute, approval needed, sensitive data change, distress, cross-account…), each classified and recorded separately |
+| **Two-way live chat with an agent** | Agent and customer share one conversation thread; both sides refresh every 5 seconds |
+| **Greeting replies** | "Hello", "Thanks" and the like are answered by a router rule: no knowledge-base lookup, no handoff (ADR-018) |
+| **Clarify vague bill complaints** | When a customer only says "my bill is wrong", Mingis asks which charge first, then hands over with the detail attached (rule before the LLM classifier, ADR-017) |
+| **Guest intake before handoff** | A guest who asks for a person is asked for a category and a description, written into the ticket so the agent can start right away |
+| **Satisfaction rating (CSAT)** | 1–5 faces, low scores ask why, aggregated on the dashboard |
+| **Knowledge-base maintenance** | Add / edit / archive entries in the web UI; one-click reindex with **hot swap, no restart**; retrieval test tool |
+| **Knowledge improvement** | The LLM clusters failure signals → drafts de-identified FAQs → staff review and publish → before/after retrieval confidence |
+| **Bilingual** | Customer chats are language-detected with separate indexes; the whole platform (customer UI and four staff pages) switches between 中文 and English from the sidebar, remembered in the URL as `?lang=` |
+
+## The four interfaces
+
+Switch from the left sidebar:
+
+| Page | For | What it does |
+|------|-----|--------------|
+| **app** (home) | Customer | Chat, log in for account queries, live conversation after handoff, rating when done |
+| **📊 Dashboard** | Manager | 4 KPIs (total tickets / open / done / unresolved queries), ticket and query statistics, trigger-reason analysis, CSAT and low-score feedback; LLM cost and latency in a collapsed "developer info" block; click any recent query or ticket to open its conversation and full record |
+| **🧑‍💼 Agent console** | Human agent | Conversation on top, open-ticket list below (urgent first, waiting time, filters); reply to the customer (auto-refresh), mark resolved (confirmed, reversible) |
+| **📚 Knowledge base** | Knowledge ops | Add / edit / archive supplementary knowledge, a "N changes not yet applied" reminder, reindex takes effect immediately, retrieval score tester |
+| **🧩 Knowledge improvement** | Knowledge ops | Analyse what needs improving, review AI-drafted FAQs, track the effect after publishing |
+
+## Architecture notes
+
+- **LLM**: `claude-haiku-4-5`. Intent classification, grounding verification, gap clustering and draft writing all use forced `tool_choice` structured output; free text is never parsed.
+- **RAG**: FAISS `IndexFlatIP` with normalised vectors (= cosine), Top-K 5, confidence threshold **0.60**; chunks are split on markdown headings (`##` / `###`) and embedded together with their heading path (ADR-016).
+- **Database**: SQLite (`data/banking.db`): `tickets`, `unresolved_queries`, `handoff_messages`, `satisfaction_ratings`, `kb_entries`, `kb_gap_drafts`, `llm_calls` (cost and latency), `chat_sessions`.
+- Full architecture document (system diagram, LangGraph flow, closed-loop sequence, tables, API, security, known limitations): [`docs/architecture.md`](docs/architecture.md).
+
+## Known limitations (demo scope)
+
+- Single machine, single user: no rate limiting, caching or horizontal scaling.
+- Live updates use 5-second polling; production should use WebSocket / SSE.
+- Workflow state lives in the front-end session, so a page refresh interrupts it (production: Redis).
+- The banking back office is a mock API; no real financial operation is performed.
+- Demo passwords are fake data compared in plain text, only to show the login flow.
+
+---
+
+# 中文
+
+Mingis 是一個中英雙語的銀行 AI 客服 Agent（虛構銀行）。多數 chatbot demo 停在「能回答 FAQ」，這個專案的重點在**答不出來的時候會發生什麼事**。
 
 ## 30 秒看懂
 
@@ -21,13 +118,7 @@
 
 > **關於測量的誠實說明**：上面的數字來自人工挑選的小樣本（62 題可回答題、12 題知識庫沒有答案的題目），是「漏洞已被補上」的方向性證據，**不是整體準確率**。檢索分數代表「找到相關內容」，不代表答對的比例。完整方法與限制見 [`docs/evaluation.md`](docs/evaluation.md)。
 
-> **關於這個 repo**：這是公開用的整理後快照。完整的設計演進見 [`docs/design_journal.md`](docs/design_journal.md) 與 [`docs/ADR.md`](docs/ADR.md)；最終版架構見 [`docs/architecture.md`](docs/architecture.md)。
-
----
-
 ## 這個專案在展示什麼
-
-多數 chatbot demo 停在「能回答 FAQ」。這個專案的重點在**答不出來的時候會發生什麼事**：
 
 ```
 客戶提問
@@ -47,14 +138,12 @@
                         量化成效：同一題檢索信心 0.53 → 0.70（跨過門檻）
 ```
 
----
-
 ## 主要功能
 
 | 功能 | 說明 |
 |------|------|
 | **FAQ 問答（RAG）** | FAISS 向量檢索 + Claude 生成，答案 grounding 在知識庫，附參考來源 |
-| **常見問題快捷路徑** | 空白對話給起始捷徑，每次回答後依「實際檢索到的來源」給延伸追問;**只顯示驗證過答得出來的題目**，點下去不會變成轉真人客服的死路 |
+| **常見問題快捷路徑** | 空白對話給起始捷徑，每次回答後依「實際檢索到的來源」給延伸追問；**只顯示驗證過答得出來的題目**，點下去不會變成轉真人客服的死路 |
 | **Grounding Verifier** | 每則 FAQ 回答前，先獨立核實「這些 chunk 真的答得了嗎」，不夠就轉真人客服（量測：12 題真缺口全部攔下；環境變數 `VERIFY_ALWAYS=0` 可退回「只在分數偏低時核實」，見 ADR-020） |
 | **帳務查詢** | 登入後用 tool-calling 查餘額/帳單/消費明細，只取問題真正需要的資料 |
 | **信用卡掛失流程** | 三步驟身分驗證工作流程，中途可取消 |
@@ -68,58 +157,6 @@
 | **知識優化流程** | LLM 聚類失敗訊號 → 生成去識別化 FAQ 草稿 → 客服審核入庫 → 檢索信心 before/after 量化成效 |
 | **雙語** | 客戶對話依輸入語言自動偵測、各自獨立索引；整個平台介面（客戶端與四個後台頁）可用側邊欄切換「中文｜English」，語言記在網址 `?lang=` |
 
----
-
-## 快速開始
-
-### 1. 環境
-
-```bash
-git clone https://github.com/YvetLo/mingis-banking-ai-agent.git
-cd mingis-banking-ai-agent
-pip install -r requirements.txt
-
-cp .env.example .env
-# 編輯 .env，填入下列三類必填值（沒有預設值，缺少或仍是範例值時後端會拒絕啟動）：
-#   ANTHROPIC_API_KEY                  你的 Claude API 金鑰
-#   JWT_SECRET_KEY                     至少 32 字元，可用下面的指令產生
-#   STAFF_USERNAME / STAFF_PASSWORD    客服人員後台的共用帳密
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-### 2. 建立向量索引（第一次執行）
-
-```bash
-python -m backend.src.rag.build_index
-```
-會下載嵌入模型 `paraphrase-multilingual-mpnet-base-v2`，把 `data/knowledge_base/` 的 markdown
-切塊建成 FAISS 索引存到 `data/faiss_index/`。
-
-### 3. 啟動（兩個終端機）
-
-```bash
-# 後端
-uvicorn backend.main:app --reload
-
-# 前端
-streamlit run frontend/app.py
-```
-
-| 位址 | 用途 |
-|------|------|
-| http://localhost:8501 | 客戶端聊天介面 |
-| http://localhost:8000/docs | 後端 API 文件（Swagger） |
-
-### 4. 測試帳號
-
-| 帳號 | 密碼 | 人設 |
-|------|------|------|
-| `demo_user1` | `demo1234` | 陳小明（一般上班族，2 張信用卡） |
-| `demo_user2` | `demo5678` | 王大明（商務人士，無限卡） |
-| `demo_user3` | `demo9999` | 陳春花（銀髮族，定存帳戶） |
-
----
-
 ## 四個介面
 
 左側側邊欄可切換：
@@ -132,98 +169,12 @@ streamlit run frontend/app.py
 | **📚 知識庫維護** | 知識維運 | 新增/編輯/封存補充知識（可搜尋的表格）、「N 筆變更尚未套用」提醒、重建索引即時生效、測試檢索分數 |
 | **🧩 知識優化流程** | 知識維運 | 分析待優化知識、審核 AI 生成的 FAQ 草稿、追蹤入庫成效 |
 
----
-
 ## 架構
 
-![Mingis 最終版架構](docs/assets/architecture-overview.png)
-
-完整的架構文件（系統圖、LangGraph 流程、閉環時序圖、資料表、API、安全性、已知限制）見
-[`docs/architecture.md`](docs/architecture.md)。簡化示意：
-
-```
-Streamlit 前端 ──HTTP──► FastAPI 後端 ──► LangGraph Agent
-                                              │
-                    ┌─────────────────────────┼──────────────────────┐
-                    ▼                         ▼                      ▼
-              Router Node              FAQ / Account /         Logger Node
-          （Claude 意圖分類）         CardLoss / Handoff /      （記未解決）
-                              HandoffIntake / BillClarify Node
-                                              │
-                              ┌───────────────┼───────────────┐
-                              ▼               ▼               ▼
-                        FAISS + 嵌入      Mock 銀行 API      SQLite
-                     （RAG 知識檢索）    （帳戶/卡片資料）  （工單/對話/評分/知識）
-```
-
-- **LLM**：`claude-haiku-4-5`；意圖分類、grounding 核實、缺口聚類、草稿生成一律用
-  `tool_choice` 強制結構化輸出，不解析自由文字
-- **RAG**：FAISS `IndexFlatIP` + 正規化向量（= cosine），Top-K 5，信心門檻 **0.60**；
-  切塊以 markdown 標題（`##`/`###`）為邊界、每塊掛上標題路徑一起嵌入（見 ADR-016）
-- **資料庫**：SQLite（`data/banking.db`）— `tickets` / `unresolved_queries` /
-  `handoff_messages` / `satisfaction_ratings` / `kb_entries` / `kb_gap_drafts` /
-  `llm_calls`（成本與延遲追蹤）/ `chat_sessions`
-
----
-
-## 專案結構
-
-```
-mingis-banking-ai-agent/
-├── backend/
-│   ├── main.py                    FastAPI 應用與所有端點
-│   └── src/
-│       ├── agent/                 LangGraph：graph / nodes / state / intent /
-│       │                          verifier / handoff / gap_pipeline / tools
-│       ├── rag/                   build_index.py（建索引）、retriever.py（檢索）
-│       ├── mock_api/              Mock 銀行 API 與假資料
-│       ├── database.py            SQLite schema 與所有 CRUD
-│       ├── prompts.py             System prompt 與回覆模板
-│       ├── card_loss_workflow.py  掛失三步驟流程
-│       └── nlp.py                 語言偵測、否定回饋判斷
-├── frontend/
-│   ├── app.py                     客戶端聊天介面
-│   └── pages/                     Dashboard / 客服人員介面 / 知識庫維護 / 知識優化流程
-├── data/
-│   ├── knowledge_base/{zh,en}/    官方知識庫 markdown（各 9 檔）
-│   ├── faiss_index/               向量索引（build_index 產出）
-│   └── banking.db                 SQLite
-├── docs/                          設計文件（見下）
-└── tests/                         pytest，269 個測試
-```
-
----
-
-## 測試
-
-```bash
-python -m pytest -q          # 全部 269 個（含需呼叫 LLM 的 eval）
-python -m pytest tests/test_handoff.py -q
-```
-
-測試會用獨立的 `test.db`（透過 `BANKING_DB_PATH`），不動到 `data/banking.db`。
-
-**刻意不進 pytest 的部分**：LLM 不確定性高的路徑（缺口分析）與會覆寫真實索引的路徑
-（reindex、草稿核准入庫），改用 curl / 瀏覽器 live 驗證 — 理由見 ADR-012 / ADR-013。
-
----
-
-## 文件
-
-| 文件 | 內容 |
-|------|------|
-| [docs/PRD.md](docs/PRD.md) | 產品需求：痛點、目標、範圍、驗收標準 |
-| [docs/architecture.md](docs/architecture.md) | 系統架構與技術選型 |
-| [docs/agent_design.md](docs/agent_design.md) | **Agent 設計**：State 規格、每個 Node 的職責與觸發條件、Sprint roadmap |
-| [docs/conversation_design.md](docs/conversation_design.md) | 對話設計原則與話術 |
-| [docs/user_flow.md](docs/user_flow.md) | 使用者流程 |
-| [docs/design_journal.md](docs/design_journal.md) | **設計日誌**：每個 Sprint 的需求 → 決策 → 實作 → 反思 |
-| [docs/ADR.md](docs/ADR.md) | **架構決策記錄**：每個重要取捨的背景、理由與 trade-off |
-| [docs/prompt_engineering/](docs/prompt_engineering/) | 五份 prompt 設計文件 |
-
-想快速理解「為什麼這樣做」，直接讀 `design_journal.md` 與 `ADR.md`。
-
----
+- **LLM**：`claude-haiku-4-5`；意圖分類、grounding 核實、缺口聚類、草稿生成一律用 `tool_choice` 強制結構化輸出，不解析自由文字
+- **RAG**：FAISS `IndexFlatIP` + 正規化向量（= cosine），Top-K 5，信心門檻 **0.60**；切塊以 markdown 標題（`##`/`###`）為邊界、每塊掛上標題路徑一起嵌入（見 ADR-016）
+- **資料庫**：SQLite（`data/banking.db`）— `tickets` / `unresolved_queries` / `handoff_messages` / `satisfaction_ratings` / `kb_entries` / `kb_gap_drafts` / `llm_calls`（成本與延遲追蹤）/ `chat_sessions`
+- 完整的架構文件（系統圖、LangGraph 流程、閉環時序圖、資料表、API、安全性、已知限制）見 [`docs/architecture.md`](docs/architecture.md)
 
 ## 已知限制（Demo 範圍）
 
@@ -232,3 +183,120 @@ python -m pytest tests/test_handoff.py -q
 - 工作流程狀態存在前端 session，重整會中斷（生產應存 Redis）
 - Mock 銀行 API，不執行任何真實金融操作
 - 密碼為明碼比對的假資料，僅供 demo 登入流程展示
+
+---
+
+# Quick start · 快速開始
+
+### 1. Setup · 環境
+
+```bash
+git clone https://github.com/YvetLo/mingis-banking-ai-agent.git
+cd mingis-banking-ai-agent
+pip install -r requirements.txt
+
+cp .env.example .env
+# EN: edit .env and fill in the required values. There are no defaults: the backend refuses to
+#     start if they are missing or still hold the example values.
+# 中: 編輯 .env，填入下列必填值（沒有預設值，缺少或仍是範例值時後端會拒絕啟動）：
+#   ANTHROPIC_API_KEY                  your Claude API key · 你的 Claude API 金鑰
+#   JWT_SECRET_KEY                     at least 32 characters, generate it with the command below · 至少 32 字元，可用下面的指令產生
+#   STAFF_USERNAME / STAFF_PASSWORD    shared login for the staff pages · 客服人員後台的共用帳密
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+### 2. Build the vector index (first run) · 建立向量索引（第一次執行）
+
+```bash
+python -m backend.src.rag.build_index
+```
+
+It downloads the embedding model `paraphrase-multilingual-mpnet-base-v2`, splits the markdown in `data/knowledge_base/` into chunks and builds a FAISS index in `data/faiss_index/`.
+會下載嵌入模型 `paraphrase-multilingual-mpnet-base-v2`，把 `data/knowledge_base/` 的 markdown 切塊建成 FAISS 索引存到 `data/faiss_index/`。
+
+### 3. Run (two terminals) · 啟動（兩個終端機）
+
+```bash
+# backend · 後端
+uvicorn backend.main:app --reload
+
+# frontend · 前端
+streamlit run frontend/app.py
+```
+
+| URL · 位址 | Purpose · 用途 |
+|------------|----------------|
+| http://localhost:8501 | Customer chat UI · 客戶端聊天介面 |
+| http://localhost:8000/docs | Backend API docs (Swagger) · 後端 API 文件 |
+
+### 4. Demo accounts · 測試帳號
+
+| Username · 帳號 | Password · 密碼 | Persona · 人設 |
+|-----------------|-----------------|----------------|
+| `demo_user1` | `demo1234` | Chen Xiao-Ming, office worker, 2 credit cards · 陳小明（一般上班族，2 張信用卡） |
+| `demo_user2` | `demo5678` | Wang Da-Ming, business person, unlimited card · 王大明（商務人士，無限卡） |
+| `demo_user3` | `demo9999` | Chen Chun-Hua, retiree with a time deposit · 陳春花（銀髮族，定存帳戶） |
+
+---
+
+# Project structure · 專案結構
+
+```
+mingis-banking-ai-agent/
+├── backend/
+│   ├── main.py                    FastAPI app and all endpoints · FastAPI 應用與所有端點
+│   └── src/
+│       ├── agent/                 LangGraph: graph / nodes / state / intent /
+│       │                          verifier / handoff / gap_pipeline / tools
+│       ├── rag/                   build_index.py (indexing), retriever.py (retrieval) · 建索引、檢索
+│       ├── mock_api/              mock banking API and fake data · Mock 銀行 API 與假資料
+│       ├── database.py            SQLite schema and all CRUD · SQLite schema 與所有 CRUD
+│       ├── prompts.py             system prompts and reply templates · System prompt 與回覆模板
+│       ├── card_loss_workflow.py  lost-card flow · 掛失三步驟流程
+│       └── nlp.py                 language detection, negative feedback · 語言偵測、否定回饋判斷
+├── frontend/
+│   ├── app.py                     customer chat UI · 客戶端聊天介面
+│   └── pages/                     Dashboard / Agent console / Knowledge base / Knowledge improvement
+├── data/
+│   ├── knowledge_base/{zh,en}/    knowledge-base markdown, 9 files each · 知識庫 markdown（各 9 檔）
+│   ├── faiss_index/               vector index, produced by build_index · 向量索引
+│   └── banking.db                 SQLite
+├── docs/                          design documents (see below) · 設計文件（見下）
+└── tests/                         pytest, 269 tests · 269 個測試
+```
+
+---
+
+# Tests · 測試
+
+```bash
+python -m pytest -q          # all 269, including evals that call the real model · 全部 269 個（含需呼叫 LLM 的 eval）
+python -m pytest tests/test_handoff.py -q
+```
+
+Tests use a separate `test.db` (via `BANKING_DB_PATH`) and never touch `data/banking.db`. They also use their own test-only credentials, never your `.env` values.
+測試會用獨立的 `test.db`（透過 `BANKING_DB_PATH`），不動到 `data/banking.db`，並使用測試專用的假帳密，不讀取你 `.env` 的真實值。
+
+**Deliberately outside pytest · 刻意不進 pytest 的部分**: paths that depend on LLM non-determinism (gap analysis) and paths that overwrite the real index (reindex, draft approval) are verified live with curl or the browser; see ADR-012 / ADR-013. 
+LLM 不確定性高的路徑（缺口分析）與會覆寫真實索引的路徑（reindex、草稿核准入庫），改用 curl / 瀏覽器 live 驗證，理由見 ADR-012 / ADR-013。
+
+---
+
+# Documentation · 文件
+
+*The design documents are written in Traditional Chinese. · 設計文件以繁體中文撰寫。*
+
+| Document · 文件 | Content · 內容 |
+|-----------------|----------------|
+| [docs/architecture.md](docs/architecture.md) | **Final architecture** (diagrams, API, security, limitations) · 最終版架構 |
+| [docs/ADR.md](docs/ADR.md) | **Architecture decision records**: background, reasons and trade-offs of every major choice · 每個重要取捨的背景、理由與 trade-off |
+| [docs/evaluation.md](docs/evaluation.md) | **Measurements and their limits** · 量測方法、結果與限制 |
+| [docs/design_journal.md](docs/design_journal.md) | **Design journal**: requirement → decision → implementation → reflection, per sprint · 每個 Sprint 的需求 → 決策 → 實作 → 反思 |
+| [docs/agent_design.md](docs/agent_design.md) | Agent design: state spec, each node's role and triggers, sprint roadmap (planning-era) · Agent 設計（規劃期） |
+| [docs/PRD.md](docs/PRD.md) | Product requirements (planning-era) · 產品需求（規劃期） |
+| [docs/conversation_design.md](docs/conversation_design.md) | Conversation design principles and wording · 對話設計原則與話術 |
+| [docs/user_flow.md](docs/user_flow.md) | User flows · 使用者流程 |
+| [docs/prompt_engineering/](docs/prompt_engineering/) | Five prompt design documents · 五份 prompt 設計文件 |
+
+To understand *why* things are built this way, start with `design_journal.md` and `ADR.md`.
+想快速理解「為什麼這樣做」，直接讀 `design_journal.md` 與 `ADR.md`。
