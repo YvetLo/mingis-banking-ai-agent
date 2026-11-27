@@ -8,13 +8,13 @@ Sprint 19 — 先建一份可重複跑、低成本、deterministic 的 golden se
 
 ## golden_cases.jsonl
 
-`tests/eval/golden_cases.jsonl`，每行一個 JSON case，共 30 題：
+`tests/eval/golden_cases.jsonl`，每行一個 JSON case，共 33 題（2026-09-01 建立基準時為 30 題，之後新增 3 題）：
 
 | 分類 | 題數 | 檔案 |
 |---|---|---|
-| FAQ（檢索來源是否有依據） | 10 | `zh_faq_*` / `en_faq_*` — 涵蓋 9 份知識庫文件裡的 8 份 |
+| FAQ（檢索來源是否有依據） | 12 | `zh_faq_*` / `en_faq_*` — 涵蓋全部 9 份知識庫文件 |
 | 帳務／掛失（登入、工具、workflow） | 8 | `zh_acct_*` / `en_acct_*` / `zh_cardloss_*` / `en_cardloss_*` |
-| Handoff（9 條業務規則中 classify_intent 涵蓋的 7 類） | 8 | `zh_handoff_*` / `en_handoff_*`，6 正例（每類一題）+ 1 負例（「你搞錯了」邊界案例，precision 需要真負例才有意義） |
+| Handoff（9 條業務規則中 classify_intent 涵蓋的 7 類） | 9 | `zh_handoff_*` / `en_handoff_*`，8 正例（7 類各一題，其中 dispute_or_refund 兩題）+ 1 負例（「你搞錯了」邊界案例，precision 需要真負例才有意義） |
 | 多輪對話（代名詞子句是否延續前文） | 4 | `zh_multi_*` / `en_multi_*` |
 
 欄位（依 case 類型而定，非全部欄位都出現在每一行）：
@@ -26,7 +26,7 @@ Sprint 19 — 先建一份可重複跑、低成本、deterministic 的 golden se
  "should_handoff": true}
 ```
 
-`category` 決定跑哪個 runner；`should_handoff` 在每一行都存在（即使是 faq/account/card_loss，也明確標 `false`），這樣 handoff 的 precision/recall 才有全體 26 個單輪 case 當分母，不是只在 8 題 handoff bucket 裡自己跟自己比。
+`category` 決定跑哪個 runner；`should_handoff` 在每一行都存在（即使是 faq/account/card_loss，也明確標 `false`），這樣 handoff 的 precision/recall 才有全體 29 個單輪 case 當分母（2026-09-01 基準時為 26 個），不是只在 9 題 handoff bucket 裡自己跟自己比。
 
 `multi_turn` 用 `"turns": [...]` 取代單一 `"query"`，最後一輪的期望值放在 `expected_intent`/`expected_sources`。
 
@@ -52,6 +52,8 @@ pytest tests/eval/test_retrieval_regression.py   # 只跑檢索（最快、免�
 | Handoff precision / recall | **100% / 100%** | `test_aggregate_handoff_precision_recall_meet_threshold`，門檻各 85% |
 | Retrieval hit rate（Top-5） | **100%**（14/14） | `test_aggregate_retrieval_hit_rate_meets_threshold`，門檻 90% |
 | Safety pass rate | **100%**（27/27，引用 `tests/security/`） | `pytest tests/security/ -q` 的通過率 |
+
+> 註：上表是 2026-09-01 在 30 題版本上量到的基準（單輪 26 題、檢索案例 14 題）。題庫現為 33 題（單輪 29 題、檢索案例 15 題）；所有彙總門檻測試在最近一次完整測試（2026-11-25，269 項）中通過，但上表的分子與分母**沒有**重新計算。
 
 四個指標都在門檻之上，這份基準線可以拿來對照未來的 prompt／RAG／模型調整有沒有真的變好或變差——低於門檻時 CI 應該紅，而不是「感覺變差了」。
 

@@ -8,13 +8,13 @@ Division of labour with `tests/security/`: the security tests are a hard gate (a
 
 ## golden_cases.jsonl
 
-`tests/eval/golden_cases.jsonl`, one JSON case per line, 30 questions:
+`tests/eval/golden_cases.jsonl`, one JSON case per line, 33 questions (30 when the 2026-09-01 baseline was set; 3 were added later):
 
 | Category | Count | Files |
 |---|---|---|
-| FAQ (is the retrieved source well-founded) | 10 | `zh_faq_*` / `en_faq_*`, covering 8 of the 9 knowledge-base documents |
+| FAQ (is the retrieved source well-founded) | 12 | `zh_faq_*` / `en_faq_*`, covering all 9 knowledge-base documents |
 | Account / lost card (login, tools, workflow) | 8 | `zh_acct_*` / `en_acct_*` / `zh_cardloss_*` / `en_cardloss_*` |
-| Handoff (7 of the 9 business rules that `classify_intent` covers) | 8 | `zh_handoff_*` / `en_handoff_*`: 6 positives (one per category) plus 1 negative (the "you got it wrong" edge case; precision is only meaningful with a real negative) |
+| Handoff (7 of the 9 business rules that `classify_intent` covers) | 9 | `zh_handoff_*` / `en_handoff_*`: 8 positives (one for each of the 7 categories, with dispute_or_refund having two) plus 1 negative (the "you got it wrong" edge case; precision is only meaningful with a real negative) |
 | Multi-turn (does a pronoun clause carry over from earlier turns) | 4 | `zh_multi_*` / `en_multi_*` |
 
 Fields (depending on the case type; not every field appears on every line):
@@ -26,7 +26,7 @@ Fields (depending on the case type; not every field appears on every line):
  "should_handoff": true}
 ```
 
-`category` decides which runner picks the case up. `should_handoff` is present on every line (explicitly `false` even for faq / account / card_loss), so handoff precision and recall have all 26 single-turn cases as the denominator, rather than comparing the 8 handoff cases only with each other.
+`category` decides which runner picks the case up. `should_handoff` is present on every line (explicitly `false` even for faq / account / card_loss), so handoff precision and recall have all 29 single-turn cases as the denominator (26 at the 2026-09-01 baseline), rather than comparing the 9 handoff cases only with each other.
 
 `multi_turn` uses `"turns": [...]` instead of a single `"query"`; the expected values for the last turn go in `expected_intent` / `expected_sources`.
 
@@ -52,6 +52,8 @@ pytest tests/eval/test_retrieval_regression.py   # retrieval only (fastest, free
 | Handoff precision / recall | **100% / 100%** | `test_aggregate_handoff_precision_recall_meet_threshold`, 85% each |
 | Retrieval hit rate (Top-5) | **100%** (14/14) | `test_aggregate_retrieval_hit_rate_meets_threshold`, threshold 90% |
 | Safety pass rate | **100%** (27/27, cited from `tests/security/`) | Pass rate of `pytest tests/security/ -q` |
+
+> Note: the table above is the baseline measured on 2026-09-01 on the 30-question version (26 single-turn cases, 14 retrieval cases). The set now has 33 questions (29 single-turn, 15 retrieval cases); every aggregate-threshold test passed in the latest full test run (2026-11-25, 269 tests), but the numerators and denominators above were **not** recomputed.
 
 All four are above their thresholds, so this baseline can be used to check whether future prompt / RAG / model changes really made things better or worse. Below a threshold, CI should go red, rather than someone "feeling it got worse".
 
